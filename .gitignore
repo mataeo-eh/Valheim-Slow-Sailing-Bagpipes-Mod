@@ -1,0 +1,44 @@
+# macOS & OS junk
+.DS_Store
+.AppleDouble
+*.swp
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# .NET / C# build output
+[Bb]in/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Unity/Valheim modding tooling
+[Ll]ibrary/
+[Tt]emp/
+[Mm]emoryCaptures/
+[Aa]ssets/AssetStoreTools*
+
+# IDE settings
+.idea/
+.vscode/
+
+# Environment & secrets
+ENV/
+.env
+.env.*
+*.secrets
+
+# Misc
+*.log
+Thumbs.db
+
+# AI Agent files
+TODO.md 
