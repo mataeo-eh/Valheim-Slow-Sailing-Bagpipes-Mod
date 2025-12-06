@@ -91,7 +91,9 @@ Ensure you have the rights to use any audio files you add:
 - Personal use: Most royalty-free sites allow this
 - Public distribution: Check license terms carefully
 - Commercial use: May require paid licenses
-
+- Music from #Uppbeat (free for Creators!):
+- https://uppbeat.io/t/kevin-macleod/hidden-past
+- License code: ZYTOPY5OYRRTR1FG
 ---
 
 *This folder is part of the Valheim Slow Sailing Bagpipes mod.*
