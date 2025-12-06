@@ -1,0 +1,24 @@
+PLACEHOLDER FOR ICON.PNG
+
+Thunderstore requires an icon.png file (256x256 pixels).
+
+To complete the package:
+1. Create or obtain a 256x256 PNG image
+2. Rename this file from "icon.png.PLACEHOLDER" to "icon.png"
+3. Replace it with your actual icon image
+
+Suggestions for icon:
+- Bagpipes illustration
+- Viking ship with musical notes
+- Celtic/Norse themed design
+- Use free icon sources like:
+  - Flaticon.com
+  - Icons8.com
+  - Create your own in GIMP/Photoshop
+  - Use AI image generation (DALL-E, Midjourney, etc.)
+
+Required specifications:
+- Format: PNG
+- Size: 256x256 pixels
+- No transparency issues
+- Clear at small sizes (Thunderstore displays it small)
