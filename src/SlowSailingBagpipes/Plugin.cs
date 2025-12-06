@@ -112,7 +112,9 @@ public class Plugin : BaseUnityPlugin
             return;
         }
 
-        var isPaddling = player.m_shipControl == ShipControlls.ShipControlType.Paddle;
+        // Check if player is controlling a ship and paddling at slow speed (rowing)
+        var ship = player.GetControlledShip();
+        var isPaddling = ship != null && ship.GetSpeedSetting() == Ship.Speed.Slow;
         LogDebug($"Player paddling state: {isPaddling}.");
 
         if (isPaddling)
@@ -372,15 +374,14 @@ public class Plugin : BaseUnityPlugin
         if (shouldMute && !_musicManMuted)
         {
             _storedMusicVolume = source.volume;
-            musicMan.ManualStopMusic();
             source.volume = 0f;
+            source.Stop();
             _musicManMuted = true;
             LogInfo("MusicMan muted.");
         }
         else if (!shouldMute && _musicManMuted)
         {
             source.volume = _storedMusicVolume;
-            musicMan.ManualStartMusic();
             _musicManMuted = false;
             LogInfo("MusicMan restored.");
         }
