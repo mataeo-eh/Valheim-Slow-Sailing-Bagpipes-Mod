@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ============================================================================
+  DoPrebuild.props.example - Template for Valheim Mod Development
+  ============================================================================
+
+  IMPORTANT: This controls whether the build process should publicize assemblies
+
+  Instructions:
+  1. Copy this file to DoPrebuild.props in the same directory
+  2. Set ExecutePrebuild to true for initial setup or false for regular builds
+  3. The DoPrebuild.props file is gitignored and will not be committed
+
+  What is ExecutePrebuild?
+  - When true: The build will publicize Valheim game assemblies (required first-time setup)
+  - When false: Skip the publicize step (normal development)
+
+  You only need to set this to true once when setting up the project,
+  or when Valheim updates and you need to re-publicize assemblies.
+  ============================================================================
+-->
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <!--
+      Set to true to publicize assemblies (first-time setup)
+      Set to false for normal builds (recommended after initial setup)
+    -->
+    <ExecutePrebuild>true</ExecutePrebuild>
+  </PropertyGroup>
+</Project>

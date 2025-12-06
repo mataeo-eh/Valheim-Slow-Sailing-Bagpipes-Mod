@@ -19,11 +19,12 @@ public class Plugin : BaseUnityPlugin
 {
     private const string PluginGuid = "eh.mataeo.valheim.slowsailingbagpipes";
     private const string PluginName = "SlowSailingBagpipes";
-    private const string PluginVersion = "0.1.0";
+    private const string PluginVersion = "1.0.0";
 
-    private const float PaddleThresholdSeconds = 10f;
+    private const float PaddleThresholdSeconds = 3f;
     private const float ResumeGraceSeconds = 10f;
-    private const float FadeDurationSeconds = 1.5f;
+    private const float FadeInDuration = 1.5f;
+    private const float FadeOutDuration = 0.5f;
     private const string PlaceholderTrackName = "ghost_bagpipe_track.mp3";
     private const string DefaultTrackDirectoryName = "BagPipesTracks";
 
@@ -112,9 +113,9 @@ public class Plugin : BaseUnityPlugin
             return;
         }
 
-        // Check if player is controlling a ship and paddling at slow speed (rowing)
+        // Check if player is controlling a ship and paddling at slow speed (forward rowing) or backward
         var ship = player.GetControlledShip();
-        var isPaddling = ship != null && ship.GetSpeedSetting() == Ship.Speed.Slow;
+        var isPaddling = ship != null && (ship.GetSpeedSetting() == Ship.Speed.Slow || ship.GetSpeedSetting() == Ship.Speed.Back);
         LogDebug($"Player paddling state: {isPaddling}.");
 
         if (isPaddling)
@@ -321,7 +322,7 @@ public class Plugin : BaseUnityPlugin
             return;
         }
 
-        StartCoroutine(FadeVolume(targetVolume: 0f, onComplete: () =>
+        StartCoroutine(FadeVolume(targetVolume: 0f, FadeOutDuration, onComplete: () =>
         {
             _audioSource.Stop();
             _isPlaying = false;
@@ -329,9 +330,9 @@ public class Plugin : BaseUnityPlugin
         }));
     }
 
-    private IEnumerator FadeVolume(float targetVolume, Action? onComplete = null)
+    private IEnumerator FadeVolume(float targetVolume, float fadeDuration, Action? onComplete = null)
     {
-        LogDebug($"Fading audio towards {targetVolume}.");
+        LogDebug($"Fading audio towards {targetVolume} over {fadeDuration}s.");
 
         if (_audioSource == null)
         {
@@ -341,10 +342,10 @@ public class Plugin : BaseUnityPlugin
         var startVolume = _audioSource.volume;
         var elapsed = 0f;
 
-        while (elapsed < FadeDurationSeconds)
+        while (elapsed < fadeDuration)
         {
             elapsed += Time.deltaTime;
-            var t = Mathf.Clamp01(elapsed / FadeDurationSeconds);
+            var t = Mathf.Clamp01(elapsed / fadeDuration);
             _audioSource.volume = Mathf.Lerp(startVolume, targetVolume, t);
             yield return null;
         }
@@ -450,7 +451,7 @@ public class Plugin : BaseUnityPlugin
         _audioSource.Play();
         _isPlaying = true;
 
-        StartCoroutine(FadeVolume(targetVolume: _volume!.Value));
+        StartCoroutine(FadeVolume(targetVolume: _volume!.Value, FadeInDuration));
         ToggleMusicManMute(shouldMute: true);
     }
 

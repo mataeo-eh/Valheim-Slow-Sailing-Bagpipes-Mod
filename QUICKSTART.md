@@ -8,7 +8,7 @@ This is a quick reference for building and testing the mod. See **DEVELOPMENT.md
 
 ```bash
 # Navigate to project
-cd "c:\Users\matae\OneDrive\Desktop\Coding-Projects\Valheim-Slow-Sailing-Bagpipes-Mod\src\SlowSailingBagpipes"
+cd "<project-root>\src\SlowSailingBagpipes"
 
 # Build
 "C:\Program Files\dotnet\dotnet.exe" build -c Release

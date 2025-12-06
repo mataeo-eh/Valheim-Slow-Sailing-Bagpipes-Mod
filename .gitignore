@@ -1,45 +1,185 @@
-# macOS & OS junk
+# ==============================================================================
+# .gitignore - Valheim Mod Project
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Operating System Files
+# ------------------------------------------------------------------------------
+# macOS
 .DS_Store
 .AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# Temporary files
 *.swp
+*.swo
+*~
+.*.swp
 
-# Python artifacts
-__pycache__/
-*.py[cod]
-*$py.class
-
-# .NET / C# build output
+# ------------------------------------------------------------------------------
+# .NET / C# Build Output
+# ------------------------------------------------------------------------------
 [Bb]in/
 [Oo]bj/
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# MSBuild Binary and Structured Log
+*.binlog
+
+# NuGet Symbol Packages
+*.snupkg
+
+# ------------------------------------------------------------------------------
+# Visual Studio / IDE Files
+# ------------------------------------------------------------------------------
 .vs/
-*.user
+.vscode/
+.idea/
 *.suo
+*.user
 *.userosscache
 *.sln.docstates
+*.userprefs
+*.sln.iml
+*.csproj.user
+*.unityproj.user
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
 
-# Unity/Valheim modding tooling
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# ------------------------------------------------------------------------------
+# Unity / Valheim Modding Specific
+# ------------------------------------------------------------------------------
 [Ll]ibrary/
 [Tt]emp/
 [Mm]emoryCaptures/
 [Aa]ssets/AssetStoreTools*
 
-# IDE settings
-.idea/
-.vscode/
+# Publicized assemblies (these are generated from game files)
+*_publicized.dll
+publicized_assemblies/
 
-# Environment & secrets
-ENV/
+# ------------------------------------------------------------------------------
+# Environment-Specific Configuration (SECURITY CRITICAL)
+# ------------------------------------------------------------------------------
+# These files contain user-specific paths and should NEVER be committed
+Environment.props
+**/Environment.props
+DoPrebuild.props
+**/DoPrebuild.props
+
+# Environment variables and secrets
 .env
 .env.*
+.env.local
+.env.development
+.env.test
+.env.production
 *.secrets
+*.secret
+*secret*
+*credentials*
+appsettings.*.json
+!appsettings.json
+!appsettings.example.json
 
-# Misc
-*.log
-Thumbs.db
-
-# AI Agent files
-TODO.md 
+# ------------------------------------------------------------------------------
+# AI Agent / Development Tools
+# ------------------------------------------------------------------------------
+.claude/
+TODO.md
 scripts/
+prompts/
+
+# ------------------------------------------------------------------------------
+# Generated Files
+# ------------------------------------------------------------------------------
+*.dll
+*.pdb
+*.exe
+*.cache
+*.log
+*.tmp
+*.temp
+
+# Auto-generated code
+**/obj/**/SlowSailingBagpipes.csproj.FileListAbsolute.txt
+**/obj/**/SlowSailingBagpipes.AssemblyInfo.cs
+**/obj/**/*.AssemblyAttributes.cs
+**/obj/**/SlowSailingBagpipes.GlobalUsings.g.cs
+*.GeneratedMSBuildEditorConfig.editorconfig
+
+# ------------------------------------------------------------------------------
+# Distribution / Package Files
+# ------------------------------------------------------------------------------
+# Keep dist/ structure but ignore package contents
+dist/**/*.dll
+dist/**/*.pdb
+dist/**/*.zip
+
+# Ignore complete package builds
+*-Thunderstore-*.zip
+*-NexusMods-*.zip
+
+# ------------------------------------------------------------------------------
+# Documentation & Project Management (Keep but ignore if they contain sensitive info)
+# ------------------------------------------------------------------------------
+PIPELINE_COMPLETE.md

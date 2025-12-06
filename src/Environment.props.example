@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ============================================================================
+  Environment.props.example - Template for Valheim Mod Development
+  ============================================================================
+
+  IMPORTANT: DO NOT COMMIT THIS FILE WITH YOUR ACTUAL PATHS!
+
+  Instructions:
+  1. Copy this file to Environment.props in the same directory
+  2. Update the VALHEIM_INSTALL path to match your Valheim installation
+  3. The Environment.props file is gitignored and will not be committed
+
+  Default Steam Installation Paths:
+  - Windows: C:\Program Files (x86)\Steam\steamapps\common\Valheim
+  - Linux:   ~/.steam/steam/steamapps/common/Valheim
+  - macOS:   ~/Library/Application Support/Steam/steamapps/common/Valheim
+
+  If you installed Valheim in a custom location, use that path instead.
+  ============================================================================
+-->
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <!--
+      Set this to your Valheim installation directory
+      Example: C:\Program Files (x86)\Steam\steamapps\common\Valheim
+    -->
+    <VALHEIM_INSTALL>C:\Program Files (x86)\Steam\steamapps\common\Valheim</VALHEIM_INSTALL>
+  </PropertyGroup>
+</Project>

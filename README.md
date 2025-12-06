@@ -1,62 +1,265 @@
-# Valheim Slow Sailing Bagpipes Mod
+# Valheim Slow Sailing Bagpipes
 
-A BepInEx/Jötunn Valheim mod that celebrates relaxed boat travel by fading in looping bagpipes whenever the player manually paddles at the slowest speed tick. The music replaces the in-game soundtrack (but leaves SFX intact) while paddling continues and gracefully fades back out once throttling up or stopping.
+> Play custom bagpipe music while rowing your Viking longship across the seas of Valheim!
 
-## Current Scope
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod/releases)
+[![BepInEx](https://img.shields.io/badge/BepInEx-5.4.2202-green.svg)](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
 
-- **Trigger condition**: Detect when the local player has `m_shipControl == ShipControlls.ShipControlType.Paddle` for roughly 10 seconds. Forward/reverse paddling counts, and leaving Paddle instantly stops the music and starts a 10-second grace period for instant resume.
-- **Audio behavior**: Every time playback starts the mod randomly chooses a clip from `BagPipesTracks/`. The files can be MP3/OGG/WAV, loop with 1–3 second fade transitions, and temporarily mute `MusicMan` so only the custom track is audible.
-- **Configuration**: BepInEx config entries for enable/disable, playback volume (0.0–1.0), and a configurable `TrackDirectory` that points to whichever folder of bagpipe loops you want to rotate through.
-- **Non-goals** (for now): Multiplayer playback parity and end-user installation/testing. Multiplayer notes will live in `README.md` until implemented.
+## Description
 
-## Framework & Project Layout
+The **Slow Sailing Bagpipes** mod adds atmospheric bagpipe music that plays automatically when you row your boat at slow speed in Valheim. Whether you're traversing the ocean in a Raft, Karve, or Longship, this mod enhances your rowing experience with custom Celtic-inspired music.
 
-| Component | Reason |
-| --- | --- |
-| **BepInEx 5** | De facto Valheim mod loader that injects managed plugins (`BaseUnityPlugin`). |
-| **Jötunn** | Provides strongly-typed accessors/parsers for Valheim game classes (e.g., `Player`, `ShipControlls`, `MusicMan`) without manually bundling publicized assemblies. |
-| **Unity Coroutines** | Used to poll ship control state, handle 10-second timers, and load audio clips from disk asynchronously.
-| **Custom rolling logger** | Persists debug-level traces to `Logs/` with 7-file retention for easier agent troubleshooting.
+Perfect for those peaceful moments when you're paddling along the coastline or crossing between islands!
+
+## Features
+
+- **Automatic Playback**: Music starts automatically after 3 seconds of rowing
+- **Bidirectional Support**: Works with both forward and backward rowing
+- **Custom Music**: Add your own MP3, OGG, or WAV files
+- **Random Selection**: Multiple tracks? The mod picks one randomly each time
+- **Smooth Transitions**:
+  - 1.5-second fade-in when music starts
+  - 0.5-second fade-out when you stop rowing
+- **Grace Period**: Stop briefly and resume within 10 seconds - music continues instantly
+- **Game Music Integration**: Automatically mutes Valheim's soundtrack during playback
+- **Fully Configurable**: Adjust volume, music folder, and enable/disable the mod
+
+## Installation
+
+### Quick Install (r2modman - Recommended)
+
+1. Download and install [r2modman](https://thunderstore.io/package/ebkr/r2modman/)
+2. Select **Valheim** and create/select a profile
+3. Search for **"Slow Sailing Bagpipes"**
+4. Click **Download** → **Download with dependencies**
+5. Launch Valheim via r2modman
+
+### Other Installation Methods
+
+- **Thunderstore Mod Manager**: Search and install from the mod browser
+- **Vortex (Nexus Mods)**: Use the "Mod Manager Download" button
+- **Manual Installation**: See [INSTALLATION.md](INSTALLATION.md) for detailed instructions
+
+For complete installation guides for all methods, see **[INSTALLATION.md](INSTALLATION.md)**.
+
+## How to Use
+
+1. **Get in a boat** (Raft, Karve, or Longship)
+2. **Set speed to SLOW** - Press W until you see the rowing animation
+3. **Row for 3 seconds** - The music will automatically fade in
+4. **Enjoy your voyage!**
+
+When you stop rowing, the music fades out. If you start rowing again within 10 seconds, it resumes instantly without delay!
+
+## Customizing Your Music
+
+### Quick Guide
+
+Want to use your own bagpipe tracks? Here's how:
+
+1. **Find the music folder**:
+   - **r2modman**: Settings → Browse profile folder → `BepInEx/plugins/BagPipesTracks/`
+   - **Manual**: `[Valheim]\BepInEx\plugins\BagPipesTracks/`
+
+2. **Delete** the placeholder file: `ghost_bagpipe_track.mp3` (it's 0 bytes)
+
+3. **Add your audio files**:
+   - Supported formats: MP3, OGG, WAV
+   - Recommended: Loopable tracks, 30-120 seconds, 192 kbps or higher
+
+4. **Restart Valheim**
+
+### Example
 
 ```
-Sailing_BagPipes/
-├── BagPipesTracks/ghost_bagpipe_track.mp3   # placeholder asset; replace with your real loop
-├── ENV/                                     # secrets (ignored)
-├── scripts/codex_alert.sh                   # macOS completion notifier
-├── src/SlowSailingBagpipes                  # BepInEx plugin source (csproj inside)
-├── README.md                                # this file
-└── TODO.md
+BagPipesTracks/
+├── README.md
+├── celtic_bagpipes_1.mp3
+├── scottish_march.mp3
+└── viking_rowing_tune.ogg
 ```
 
-> **Ghost track placeholder**: The repository ships an empty `ghost_bagpipe_track.mp3` so the mod can look up the default asset path without errors. Replace it with the eventual loop (OGG/WAV/MP3) or drop multiple clips in the folder—the plugin will pick one at random whenever it starts playing.
+The mod will randomly select one track each time you start rowing!
 
-## Custom Audio Files
+### Finding Bagpipe Music
 
-1. Drop MP3/OGG/WAV loops into `BagPipesTracks/` (default) or any other folder you prefer.
-2. Launch the game once so BepInEx generates `BepInEx/config/eh.mataeo.valheim.slowsailingbagpipes.cfg`.
-3. Open that config and set `Audio.TrackDirectory` to either the default folder name (relative to the plugin DLL) or an absolute path somewhere else on disk.
-4. Save the file; the mod hot-reloads the directory and randomly selects a clip every time playback starts. Empty folders are handled gracefully (music just stays silent until files are added).
+**Free Royalty-Free Sources**:
+- [Freesound](https://freesound.org/) - Search "bagpipes"
+- [Pixabay Music](https://pixabay.com/music/) - Search "bagpipes" or "celtic"
+- [YouTube Audio Library](https://www.youtube.com/audiolibrary)
+- [Incompetech](https://incompetech.com/music/) - Kevin MacLeod's music
 
-## Logging
+**Included Track**: Hidden Past by Kevin MacLeod from [Uppbeat](https://uppbeat.io/t/kevin-macleod/hidden-past)
+License code: ZYTOPY5OYRRTR1FG
 
-`src/SlowSailingBagpipes` includes a rolling file logger that mirrors all BepInEx messages to `Logs/SlowSailingBagpipes-YYYY-MM-DD-HH-mm.log` inside the plugin folder (gitignored). Only the seven newest logs are retained. Every function, timer transition, and audio event writes at **DEBUG** level by default so you can inspect bagpipe behavior from the log files.
+## Configuration
 
-## macOS Completion Notification
+After first launch, the mod creates a config file at:
+```
+[Valheim]\BepInEx\config\eh.mataeo.valheim.slowsailingbagpipes.cfg
+```
 
-Use `scripts/codex_alert.sh` to raise a native notification when Codex/the build pipeline finishes:
+### Available Settings
+
+```ini
+[General]
+Enabled = true              # Master toggle (true/false)
+Volume = 0.85               # Music volume (0.0 to 1.0)
+
+[Audio]
+TrackDirectory = BagPipesTracks  # Audio folder path (relative or absolute)
+```
+
+Edit the file and restart Valheim for changes to take effect.
+
+## Technical Details
+
+| Setting | Value |
+|---------|-------|
+| **Trigger delay** | 3 seconds of continuous rowing |
+| **Fade-in duration** | 1.5 seconds |
+| **Fade-out duration** | 0.5 seconds |
+| **Grace period** | 10 seconds |
+| **Rowing detection** | Forward (Ship.Speed.Slow) OR Backward (Ship.Speed.Back) |
+| **Audio formats** | MP3, OGG, WAV |
+| **Multiplayer** | Client-side only (each player hears their own music) |
+
+## Troubleshooting
+
+### No music plays
+
+**Check these**:
+- Audio files exist in `BagPipesTracks/` folder
+- Files are **not 0 bytes** (delete the placeholder!)
+- You're rowing at **SLOW speed** (not half or full speed)
+- You waited the full **3 seconds**
+- Check the log: `BepInEx/LogOutput.log` should show `Loaded X bagpipe track(s)`
+
+### Mod doesn't load
+
+**Verify**:
+- BepInEx is installed correctly
+- `SailingBagpipes.dll` is in `BepInEx/plugins/`
+- Check `BepInEx/LogOutput.log` for errors
+- Make sure you're using BepInEx 5.4.2202 or later
+
+### Music is too loud/quiet
+
+Edit the config file and change `Volume = 0.85` (range: 0.0 to 1.0)
+
+For more troubleshooting, see **[INSTALLATION.md](INSTALLATION.md#troubleshooting)**.
+
+## Compatibility
+
+- **Valheim Version**: Latest (tested on current build)
+- **BepInEx**: 5.4.2202 or later
+- **Multiplayer**: ✅ Compatible (client-side, each player independent)
+- **Other Mods**: ✅ Should be compatible with most mods
+
+## Development
+
+### Building from Source
 
 ```bash
-# Success case
-scripts/codex_alert.sh --success
+# Prerequisites: .NET SDK 10.0.100+, Valheim with BepInEx
 
-# Report remaining tasks
-scripts/codex_alert.sh --remaining 2
+# Clone the repository
+git clone https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod.git
+cd Valheim-Slow-Sailing-Bagpipes-Mod
+
+# Configure Valheim path (edit if needed)
+# src/Environment.props
+
+# Build
+cd src/SlowSailingBagpipes
+dotnet build -c Release
+
+# Output: bin/Release/net472/SailingBagpipes.dll
 ```
 
-The script automatically plays the default alert sound and is limited to macOS (`osascript`).
+See **[DEVELOPMENT.md](DEVELOPMENT.md)** for complete development documentation.
 
-## Next Steps
+### Contributing
 
-1. Scaffold the BepInEx plugin (`src/SlowSailingBagpipes`).
-2. Wire ship-state detection + music controller logic.
-3. Replace the placeholder track with the real bagpipe recording and re-test.
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## Documentation
+
+- **[INSTALLATION.md](INSTALLATION.md)** - Complete installation guide for all methods
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Development, building, and testing guide
+- **[RELEASING.md](RELEASING.md)** - Guide for creating releases and publishing
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
+
+## Credits
+
+- **Mod Author**: mataeo-eh
+- **Framework**: [BepInEx Team](https://github.com/BepInEx/BepInEx) - Mod loading framework
+- **Library**: [Valheim Modding Team](https://github.com/Valheim-Modding/Jotunn) - JotunnLib for Valheim modding
+- **Game**: [Iron Gate Studio](https://www.irongatestudio.se/) - Creators of Valheim
+- **Music**: Kevin MacLeod - Hidden Past ([Uppbeat](https://uppbeat.io/t/kevin-macleod/hidden-past))
+
+## License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+You are free to:
+- Use the mod for personal or commercial purposes
+- Modify the code
+- Distribute the mod
+- Include it in modpacks
+
+Just give credit and include the license!
+
+## Links
+
+- **GitHub Repository**: https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod
+- **Issues/Bug Reports**: https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod/issues
+- **Thunderstore**: *(Will be added after release)*
+- **Nexus Mods**: *(Will be added after release)*
+
+## Changelog
+
+### v1.0.0 (2025-12-06)
+
+**Initial public release!**
+
+- Automatic bagpipe music playback while rowing
+- Support for forward AND backward rowing
+- 3-second trigger delay for responsive playback
+- Smooth fade transitions (1.5s in, 0.5s out)
+- 10-second grace period for seamless resuming
+- Custom music support (MP3, OGG, WAV)
+- Random track selection from multiple files
+- Configurable volume and track directory
+- Rolling file logger for debugging
+- Complete documentation and installation guides
+
+See **[CHANGELOG.md](CHANGELOG.md)** for complete version history.
+
+---
+
+## Support
+
+Having issues or questions?
+
+- **GitHub Issues**: https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod/issues
+- **Thunderstore Comments**: *(After release)*
+- **Nexus Mods Forum**: *(After release)*
+
+When reporting issues, please include:
+- Valheim version
+- BepInEx version
+- Mod version
+- Log file: `BepInEx/LogOutput.log`
+- Steps to reproduce the issue
+
+---
+
+**Enjoy your Viking sea voyages with custom bagpipe music!** ⚓🎵🏴󐁧󐁢󐁳󐁣󐁴󐁿

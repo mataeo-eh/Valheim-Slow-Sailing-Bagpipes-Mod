@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document provides a complete development and testing pipeline for the Valheim Slow Sailing Bagpipes mod. The mod replaces sailing audio with custom bagpipe music when the player is rowing forward at rowing speed (slow speed setting).
+This document provides a complete development and testing pipeline for the Valheim Slow Sailing Bagpipes mod. The mod plays custom bagpipe music when the player is rowing forward OR backward at slow speed.
 
-**Status:** Build successful, ready for in-game testing
+**Status:** Version 1.0.0 - Ready for public release
 
-**Last Updated:** 2025-12-05
+**Last Updated:** 2025-12-06
 
 ---
 
@@ -32,21 +32,27 @@ Valheim-Slow-Sailing-Bagpipes-Mod/
 ├── BagPipesTracks/                    # Audio files folder (MP3/OGG/WAV)
 │   └── ghost_bagpipe_track.mp3       # Placeholder (replace with real audio)
 ├── src/
-│   ├── Environment.props              # Valheim installation path config
-│   ├── DoPrebuild.props               # Enables JotunnLib autopublicize
+│   ├── Environment.props.example      # Template for Valheim path config
+│   ├── Environment.props              # Your local config (gitignored, create from .example)
+│   ├── DoPrebuild.props.example       # Template for build settings
+│   ├── DoPrebuild.props               # Your local settings (gitignored, create from .example)
 │   └── SlowSailingBagpipes/           # Main plugin source
 │       ├── Plugin.cs                  # Main mod logic
 │       ├── Logging/
 │       │   └── PluginLogger.cs        # Custom rolling file logger
 │       ├── SlowSailingBagpipes.csproj # Project file
-│       ├── Environment.props          # (copy of parent)
-│       ├── DoPrebuild.props           # (copy of parent)
-│       └── bin/Release/net472/        # Build output
+│       ├── Environment.props.example  # Template (copy to Environment.props)
+│       ├── DoPrebuild.props.example   # Template (copy to DoPrebuild.props)
+│       └── bin/Release/net472/        # Build output (gitignored)
 │           └── SailingBagpipes.dll    # The compiled mod
 ├── NuGet.config                       # NuGet package sources
+├── build_and_install.bat              # Automated build and install script
 ├── README.md                          # User-facing documentation
 └── DEVELOPMENT.md                     # This file
 ```
+
+**IMPORTANT:** The `Environment.props` and `DoPrebuild.props` files are gitignored to prevent
+committing user-specific paths. You must create these from the `.example` templates on first setup.
 
 ---
 
@@ -106,9 +112,21 @@ These are created automatically from your Valheim installation when you build.
 
 ### Initial Setup (One-Time)
 
-1. **Configure Valheim Installation Path**
+1. **Create Local Configuration Files**
 
-   Edit `src/Environment.props` if your Valheim is not in the default location:
+   Copy the example templates to create your local configuration:
+
+   ```bash
+   # From the project root
+   copy src\Environment.props.example src\Environment.props
+   copy src\DoPrebuild.props.example src\DoPrebuild.props
+   copy src\SlowSailingBagpipes\Environment.props.example src\SlowSailingBagpipes\Environment.props
+   copy src\SlowSailingBagpipes\DoPrebuild.props.example src\SlowSailingBagpipes\DoPrebuild.props
+   ```
+
+2. **Configure Valheim Installation Path**
+
+   Edit `src/Environment.props` and `src/SlowSailingBagpipes/Environment.props` to match your Valheim installation:
 
    ```xml
    <PropertyGroup>
@@ -116,26 +134,49 @@ These are created automatically from your Valheim installation when you build.
    </PropertyGroup>
    ```
 
-2. **Verify .NET SDK**
+   **Note:** If Valheim is installed in a custom location, update the path accordingly.
+
+3. **Verify .NET SDK**
 
    ```bash
-   "C:\Program Files\dotnet\dotnet.exe" --version
+   dotnet --version
    # Should output: 10.0.100 or higher
    ```
 
+   If not found, download from: https://dotnet.microsoft.com/download/dotnet/10.0
+
 ### Building the Mod
 
-#### Option 1: Command Line (Recommended)
+#### Option 1: Automated Build Script (Easiest)
+
+Use the provided build script from the project root:
+
+```bash
+# Build and install to Valheim (default)
+build_and_install.bat
+
+# Build only (don't install)
+build_and_install.bat /build-only
+
+# Show help and options
+build_and_install.bat /help
+
+# Use custom Valheim path
+set VALHEIM_PATH=D:\Games\Valheim
+build_and_install.bat
+```
+
+#### Option 2: Command Line (Manual)
 
 ```bash
 # Navigate to project directory
-cd "c:\Users\matae\OneDrive\Desktop\Coding-Projects\Valheim-Slow-Sailing-Bagpipes-Mod\src\SlowSailingBagpipes"
+cd src\SlowSailingBagpipes
 
 # Clean previous builds
-"C:\Program Files\dotnet\dotnet.exe" clean
+dotnet clean
 
 # Build in Release configuration
-"C:\Program Files\dotnet\dotnet.exe" build -c Release
+dotnet build -c Release
 ```
 
 #### Option 2: Visual Studio
@@ -340,36 +381,45 @@ Before testing in-game:
    - Karve
    - Longship
 
-#### 3. Test Rowing Trigger
+#### 3. Test Rowing Trigger (Forward)
 
 1. **Get in the boat**
 2. **Set speed to SLOW** (rowing speed)
    - Press W (forward) until at slowest speed setting
    - You should see the rowing animation
-3. **Row for 10 seconds**
-   - Timer requirement: 10 seconds of continuous rowing
+3. **Row for 3 seconds**
+   - Timer requirement: 3 seconds of continuous rowing
 4. **Expected behavior:**
-   - After 10 seconds: Bagpipe music fades in (1.5 second fade)
+   - After 3 seconds: Bagpipe music fades in (1.5 second fade)
    - Game music (MusicMan) volume is reduced to 0
    - Bagpipe music loops seamlessly
 
-#### 4. Test Stopping Trigger
+#### 4. Test Backward Rowing Trigger
+
+1. **While in boat, press S to row backward**
+2. **Row backward for 3 seconds**
+3. **Expected behavior:**
+   - After 3 seconds: Bagpipe music fades in (same as forward)
+   - Music plays while rowing backward
+   - Stop rowing backward - music fades out
+
+#### 5. Test Stopping Trigger
 
 1. **While music is playing, stop rowing**
-   - Release W, or press S to stop/reverse
+   - Release W/S, or change speed
 2. **Expected behavior:**
-   - Music fades out (1.5 seconds)
+   - Music fades out (0.5 seconds - quick fade)
    - Game music resumes at normal volume
    - Grace period of 10 seconds granted
 
-#### 5. Test Grace Period
+#### 6. Test Grace Period
 
 1. **Resume rowing within 10 seconds** of stopping
 2. **Expected behavior:**
-   - Bagpipe music resumes **immediately** (no 10-second delay)
+   - Bagpipe music resumes **immediately** (no 3-second delay)
    - This allows for brief pauses without restarting the timer
 
-#### 6. Test Random Selection (Multiple Files)
+#### 7. Test Random Selection (Multiple Files)
 
 1. **Add 2+ different audio files** to the folder
 2. **Restart the game** (or reload the mod)
@@ -384,10 +434,11 @@ Before testing in-game:
 
 - [ ] Mod loads without errors
 - [ ] Audio files are detected (check log)
-- [ ] Rowing at slow speed for 10 seconds triggers music
-- [ ] Music fades in smoothly
+- [ ] **Forward** rowing at slow speed for 3 seconds triggers music
+- [ ] **Backward** rowing at slow speed for 3 seconds triggers music
+- [ ] Music fades in smoothly (1.5 seconds)
 - [ ] Game music is muted during bagpipe playback
-- [ ] Stopping rowing fades out bagpipe music
+- [ ] Stopping rowing fades out bagpipe music (0.5 seconds - quick)
 - [ ] Game music resumes after bagpipe stops
 - [ ] Grace period works (resume within 10 sec = instant restart)
 - [ ] Random selection works with multiple files
@@ -474,8 +525,8 @@ Valheim/BepInEx/plugins/Logs/SlowSailingBagpipes-YYYY-MM-DD-HH-mm.log
 2. At least one .mp3/.ogg/.wav file present
 3. Audio file is not empty (0 bytes)
 4. Check mod log file for: "No bagpipe tracks found"
-5. Ensure you're rowing at **SLOW speed** (first speed setting)
-6. Wait full 10 seconds of continuous rowing
+5. Ensure you're rowing at **SLOW speed** (forward or backward)
+6. Wait full **3 seconds** of continuous rowing
 
 #### Music plays but game crashes
 
@@ -565,13 +616,14 @@ The mod runs `Update()` every frame and checks:
 2. **Is the player controlling a ship?**
    - `player.GetControlledShip()` returns the Ship instance or null
 
-3. **Is the ship at slow speed?**
-   - `ship.GetSpeedSetting() == Ship.Speed.Slow`
-   - This is the "rowing" speed (first forward speed setting)
+3. **Is the ship at slow speed OR rowing backward?**
+   - `ship.GetSpeedSetting() == Ship.Speed.Slow` (forward rowing)
+   - OR `ship.GetSpeedSetting() == Ship.Speed.Back` (backward rowing)
+   - Both trigger the music!
 
-4. **Has the player been rowing for 10 seconds?**
+4. **Has the player been rowing for 3 seconds?**
    - `_paddleTimer` increments while rowing
-   - Threshold: `PaddleThresholdSeconds = 10f`
+   - Threshold: `PaddleThresholdSeconds = 3f`
 
 5. **Start music:**
    - Select random track from `_trackPaths` list
@@ -589,7 +641,7 @@ When player stops rowing or exceeds slow speed:
    - If rowing resumes within 10 seconds, music continues
 
 2. **Fade out music:**
-   - Fade volume from current to 0 (1.5 seconds)
+   - Fade volume from current to 0 (0.5 seconds - quick fade)
    - Stop audio playback
    - Restore `MusicMan` volume
 
@@ -637,8 +689,9 @@ Config.SettingChanged += (_, args) => { ... }
 2. **No in-game UI:** Configuration is file-based only
    - No BepInEx ConfigurationManager integration (yet)
 
-3. **Rowing detection:** Based on ship speed setting
+3. **Rowing detection:** Based on ship speed setting (Slow OR Back)
    - May need tuning if Valheim changes ship mechanics
+   - Currently works with both forward and backward rowing
 
 4. **MusicMan API:** Current implementation uses basic volume control
    - May need updates if Valheim changes music system
@@ -653,7 +706,7 @@ The mod was updated to work with current Valheim version. Key changes:
 
 | Old API (Broken) | New API (Working) | Notes |
 |------------------|-------------------|-------|
-| `player.m_shipControl == ShipControlls.ShipControlType.Paddle` | `player.GetControlledShip() != null && ship.GetSpeedSetting() == Ship.Speed.Slow` | Ship control detection |
+| `player.m_shipControl == ShipControlls.ShipControlType.Paddle` | `player.GetControlledShip() != null && (ship.GetSpeedSetting() == Ship.Speed.Slow \|\| ship.GetSpeedSetting() == Ship.Speed.Back)` | Ship control detection - forward OR backward |
 | `musicMan.ManualStopMusic()` | `source.Stop()` | Music stopping |
 | `musicMan.ManualStartMusic()` | Volume restoration only | Music resuming |
 
@@ -740,11 +793,23 @@ When ready to release:
 
 ## Changelog
 
-### v0.1.0 (2025-12-05)
-- Initial release
-- Basic rowing detection and audio playback
+See [CHANGELOG.md](CHANGELOG.md) for complete version history.
+
+### v1.0.0 (2025-12-06)
+- **Public release**
+- Forward AND backward rowing support (Ship.Speed.Slow OR Ship.Speed.Back)
+- 3-second trigger delay (reduced from 10s)
+- Separate fade durations: 1.5s fade-in, 0.5s fade-out
+- 10-second grace period
+- Custom music support (MP3/OGG/WAV)
 - Random track selection
-- Configurable volume and audio folder
+- Configurable volume and track directory
+- Complete documentation for release
+
+### v0.1.0 (2025-12-05)
+- Initial development version
+- Basic rowing detection (forward only)
+- Audio playback with 10-second delay
 - Rolling file logger
 - JotunnLib autopublicize integration
 - Fixed Valheim API compatibility issues
