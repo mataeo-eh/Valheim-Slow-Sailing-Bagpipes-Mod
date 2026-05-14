@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using BepInEx;
 using BepInEx.Configuration;
 using SailingBagpipes.Logging;
@@ -19,9 +20,9 @@ public class Plugin : BaseUnityPlugin
 {
     private const string PluginGuid = "eh.mataeo.valheim.slowsailingbagpipes";
     private const string PluginName = "SlowSailingBagpipes";
-    private const string PluginVersion = "1.0.0";
+    private const string PluginVersion = "1.0.5";
 
-    private const float PaddleThresholdSeconds = 3f;
+    private const float PaddleThresholdSeconds = 0.1f;
     private const float ResumeGraceSeconds = 10f;
     private const float FadeInDuration = 1.5f;
     private const float FadeOutDuration = 0.5f;
@@ -29,12 +30,15 @@ public class Plugin : BaseUnityPlugin
     private const string DefaultTrackDirectoryName = "BagPipesTracks";
 
     private static readonly string[] SupportedExtensions = { ".mp3", ".ogg", ".wav" };
+    private static readonly FieldInfo? ShipPlayersField = typeof(Ship).GetField("m_players", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly FieldInfo? MusicManMusicSourceField = typeof(MusicMan).GetField("m_musicSource", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private ConfigEntry<bool>? _enabled;
     private ConfigEntry<float>? _volume;
     private ConfigEntry<string>? _trackDirectoryConfig;
 
     private PluginLogger? _fileLogger;
+    private GameObject? _audioHolder;
     private AudioSource? _audioSource;
 
     private readonly Dictionary<string, AudioClip> _clipCache = new();
@@ -44,19 +48,27 @@ public class Plugin : BaseUnityPlugin
     private string? _trackDirectory;
     private List<string> _trackPaths = new();
     private Coroutine? _clipLoadRoutine;
+    private Coroutine? _fadeRoutine;
     private string? _pendingTrackPath;
     private bool _pendingPlayback;
 
     private bool _isPlaying;
+    private bool _isPausedForGrace;
     private float _paddleTimer;
     private float _resumeUntil;
     private float _storedMusicVolume = 1f;
-    private bool _musicManMuted;
+    private bool _musicManSuppressed;
+    private bool _musicManWasPlaying;
+    private bool _audioSourceConfiguredFromMusicMan;
+    private int _lastControlledShipId = -1;
+    private string _lastControlledShipName = "None";
+    private Ship.Speed? _lastSpeedSetting;
+    private bool _lastEligibleRowingState;
+    private string _lastControllerDescription = "None";
+    private bool? _lastAttachedToShip;
 
     private void Awake()
     {
-        LogDebug("Awake invoked; binding configuration and initializing logging.");
-
         _pluginDirectory = Path.GetDirectoryName(Info.Location) ?? Paths.PluginPath;
         _fileLogger = new PluginLogger(PluginName, _pluginDirectory);
 
@@ -70,98 +82,158 @@ public class Plugin : BaseUnityPlugin
         );
 
         UpdateTrackDirectory(_trackDirectoryConfig.Value);
-
         _audioSource = CreateAudioSource();
 
-        Config.SettingChanged += (_, args) =>
+        Config.SettingChanged += OnConfigSettingChanged;
+
+        LogInfo($"Initialized. Watching track directory: {_trackDirectory}");
+    }
+
+    private void OnDestroy()
+    {
+        Config.SettingChanged -= OnConfigSettingChanged;
+        StopBagpipes(immediate: true);
+        ClearClipCache();
+
+        if (_audioHolder != null)
         {
-            LogDebug($"Config setting changed: {args.ChangedSetting.Definition.Key}.");
-            if (args.ChangedSetting == _volume && _isPlaying && _audioSource != null)
-            {
-                _audioSource.volume = _volume!.Value;
-            }
-            else if (_trackDirectoryConfig != null && args.ChangedSetting == _trackDirectoryConfig)
-            {
-                LogInfo($"Track directory changed to {_trackDirectoryConfig.Value}; refreshing library.");
-                UpdateTrackDirectory(_trackDirectoryConfig.Value);
-            }
-        };
+            Destroy(_audioHolder);
+            _audioHolder = null;
+        }
     }
 
     private void Update()
     {
-        LogDebug("Update tick invoked.");
-
         if (_enabled is not { Value: true })
         {
-            LogInfo("Mod disabled via config; ensuring playback is stopped.");
-            StopBagpipes(immediate: true);
+            if (_isPlaying || _isPausedForGrace || _pendingPlayback)
+            {
+                StopBagpipes(immediate: true);
+            }
+
             return;
         }
 
         if (_audioSource == null)
         {
-            LogWarn("Audio source not initialized; aborting update.");
+            LogWarn("Audio source not initialized; skipping update.");
             return;
         }
+
+        SyncAudioSourceWithMusicMan();
 
         var player = Player.m_localPlayer;
         if (player == null)
         {
-            LogDebug("No local player present; stopping audio.");
-            StopBagpipes(immediate: true);
+            if (_isPlaying || _isPausedForGrace || _pendingPlayback)
+            {
+                StopBagpipes(immediate: true);
+            }
+
+            LogControlState(null, null, null, "None");
             return;
         }
 
-        // Check if player is controlling a ship and paddling at slow speed (forward rowing) or backward
-        var ship = player.GetControlledShip();
-        var isPaddling = ship != null && (ship.GetSpeedSetting() == Ship.Speed.Slow || ship.GetSpeedSetting() == Ship.Speed.Back);
-        LogDebug($"Player paddling state: {isPaddling}.");
+        var ship = ResolveControlledShip(player, out var controllerDescription);
+        Ship.Speed? speedSetting = ship?.GetSpeedSetting();
+        LogControlState(player, ship, speedSetting, controllerDescription);
 
-        if (isPaddling)
+        var isRowingAtTriggerSpeed = speedSetting.HasValue && IsRowingAtTriggerSpeed(speedSetting.Value);
+
+        if (isRowingAtTriggerSpeed)
         {
-            HandlePaddlingState();
+            HandleRowingState(ship!, speedSetting!.Value);
+            return;
         }
-        else
+
+        HandleNonRowingState(ship, speedSetting);
+    }
+
+    private void OnConfigSettingChanged(object? sender, SettingChangedEventArgs args)
+    {
+        if (_audioSource == null)
         {
-            HandleNonPaddlingState();
+            return;
+        }
+
+        if (args.ChangedSetting == _volume)
+        {
+            if (_isPlaying)
+            {
+                _audioSource.volume = _volume!.Value;
+            }
+
+            return;
+        }
+
+        if (_trackDirectoryConfig != null && args.ChangedSetting == _trackDirectoryConfig)
+        {
+            LogInfo($"Track directory changed to {_trackDirectoryConfig.Value}; reloading library.");
+            StopBagpipes(immediate: true);
+            ClearClipCache();
+            UpdateTrackDirectory(_trackDirectoryConfig.Value);
         }
     }
 
-    private void HandlePaddlingState()
+    private static bool IsRowingAtTriggerSpeed(Ship.Speed speedSetting) =>
+        speedSetting == Ship.Speed.Slow || speedSetting == Ship.Speed.Back;
+
+    private void HandleRowingState(Ship ship, Ship.Speed speedSetting)
     {
-        LogDebug("Handling paddling state.");
-
-        _paddleTimer += Time.deltaTime;
-        var skipDelay = Time.time <= _resumeUntil;
-        LogDebug($"Paddle timer: {_paddleTimer:F2}, skipDelay: {skipDelay}.");
-
-        if (!_isPlaying && !_pendingPlayback && (_paddleTimer >= PaddleThresholdSeconds || skipDelay))
+        if (!_lastEligibleRowingState)
         {
-            LogInfo("Paddling conditions met; requesting bagpipe playback.");
+            LogInfo($"Detected eligible rowing on {GetShipDisplayName(ship)} at speed setting {speedSetting}; waiting for {PaddleThresholdSeconds:F1}s threshold.");
+        }
+
+        _lastEligibleRowingState = true;
+        _paddleTimer += Time.deltaTime;
+
+        if (_isPausedForGrace && Time.time <= _resumeUntil)
+        {
+            LogInfo($"Resuming paused clip on {GetShipDisplayName(ship)} within grace window.");
+            ResumeBagpipes();
+            return;
+        }
+
+        var canSkipDelay = _resumeUntil > 0f && Time.time <= _resumeUntil;
+        if (!_isPlaying && !_pendingPlayback && !_isPausedForGrace && (_paddleTimer >= PaddleThresholdSeconds || canSkipDelay))
+        {
+            LogInfo($"Rowing threshold satisfied on {GetShipDisplayName(ship)} at speed setting {speedSetting}; starting bagpipes.");
             StartBagpipes();
         }
     }
 
-    private void HandleNonPaddlingState()
+    private void HandleNonRowingState(Ship? ship, Ship.Speed? speedSetting)
     {
-        LogDebug("Handling non-paddling state.");
+        if (_lastEligibleRowingState)
+        {
+            var shipName = ship != null ? GetShipDisplayName(ship) : _lastControlledShipName;
+            var speedDescription = speedSetting?.ToString() ?? "None";
+            LogInfo($"Eligible rowing ended on {shipName}; current speed setting {speedDescription}; timer reached {_paddleTimer:F2}s.");
+        }
 
+        _lastEligibleRowingState = false;
         _paddleTimer = 0f;
 
         if (_pendingPlayback)
         {
-            LogInfo("Cancelling pending playback due to paddling stop.");
             CancelPendingPlayback();
         }
 
         if (_isPlaying)
         {
             _resumeUntil = Time.time + ResumeGraceSeconds;
-            LogInfo($"Exiting Paddle; granting resume window until {_resumeUntil:F2}.");
-            StopBagpipes();
+            PauseBagpipesForGrace();
+            return;
         }
-        else if (Time.time > _resumeUntil)
+
+        if (_isPausedForGrace && Time.time > _resumeUntil)
+        {
+            StopBagpipes(immediate: true);
+            return;
+        }
+
+        if (!_isPausedForGrace && Time.time > _resumeUntil)
         {
             _resumeUntil = 0f;
         }
@@ -169,34 +241,208 @@ public class Plugin : BaseUnityPlugin
 
     private AudioSource CreateAudioSource()
     {
-        LogDebug("Creating persistent audio source.");
+        _audioHolder = new GameObject("SlowSailingBagpipes_AudioCarrier");
+        DontDestroyOnLoad(_audioHolder);
 
-        var holder = new GameObject("SlowSailingBagpipes_AudioCarrier");
-        DontDestroyOnLoad(holder);
-
-        var source = holder.AddComponent<AudioSource>();
+        var source = _audioHolder.AddComponent<AudioSource>();
         source.playOnAwake = false;
         source.loop = true;
         source.volume = 0f;
         source.spatialBlend = 0f;
+        source.priority = 64;
         return source;
+    }
+
+    private void SyncAudioSourceWithMusicMan()
+    {
+        if (_audioSource == null || _audioSourceConfiguredFromMusicMan)
+        {
+            return;
+        }
+
+        var template = GetMusicManAudioSource();
+        if (template == null)
+        {
+            return;
+        }
+
+        _audioSource.outputAudioMixerGroup = template.outputAudioMixerGroup;
+        _audioSource.priority = template.priority;
+        _audioSource.pitch = 1f;
+        _audioSource.panStereo = 0f;
+        _audioSource.reverbZoneMix = template.reverbZoneMix;
+        _audioSource.bypassEffects = template.bypassEffects;
+        _audioSource.bypassListenerEffects = template.bypassListenerEffects;
+        _audioSource.bypassReverbZones = template.bypassReverbZones;
+        _audioSource.ignoreListenerPause = template.ignoreListenerPause;
+        _audioSource.ignoreListenerVolume = template.ignoreListenerVolume;
+        _audioSource.mute = false;
+        _audioSource.spatialBlend = 0f;
+        _audioSource.dopplerLevel = 0f;
+        _audioSource.spread = 0f;
+
+        _audioSourceConfiguredFromMusicMan = true;
+        LogInfo("Audio source synced to Valheim music mixer settings.");
+    }
+
+    private void LogControlState(Player? player, Ship? ship, Ship.Speed? speedSetting, string controllerDescription)
+    {
+        if (player == null)
+        {
+            if (_lastControlledShipId != -1 || _lastSpeedSetting != null || _lastControllerDescription != "None" || _lastAttachedToShip != null)
+            {
+                LogInfo("No local player is active; cleared ship control state.");
+            }
+
+            _lastControlledShipId = -1;
+            _lastControlledShipName = "None";
+            _lastSpeedSetting = null;
+            _lastControllerDescription = "None";
+            _lastAttachedToShip = null;
+            return;
+        }
+
+        var attachedToShip = player.IsAttachedToShip();
+
+        if (ship == null)
+        {
+            if (_lastControlledShipId != -1 || _lastSpeedSetting != null || controllerDescription != _lastControllerDescription || attachedToShip != _lastAttachedToShip)
+            {
+                LogInfo($"No controlled ship resolved. AttachedToShip={attachedToShip} controller={controllerDescription}.");
+            }
+
+            _lastControlledShipId = -1;
+            _lastControlledShipName = "None";
+            _lastSpeedSetting = null;
+            _lastControllerDescription = controllerDescription;
+            _lastAttachedToShip = attachedToShip;
+            return;
+        }
+
+        var shipId = ship.GetInstanceID();
+        var shipName = GetShipDisplayName(ship);
+        if (shipId != _lastControlledShipId || speedSetting != _lastSpeedSetting || controllerDescription != _lastControllerDescription || attachedToShip != _lastAttachedToShip)
+        {
+            LogInfo(
+                $"Ship control state: ship={shipName} speedSetting={speedSetting} speed={ship.GetSpeed():F2} rudder={ship.GetRudder():F2} attached={attachedToShip} controller={controllerDescription}."
+            );
+        }
+
+        _lastControlledShipId = shipId;
+        _lastControlledShipName = shipName;
+        _lastSpeedSetting = speedSetting;
+        _lastControllerDescription = controllerDescription;
+        _lastAttachedToShip = attachedToShip;
+    }
+
+    private static string GetShipDisplayName(Ship ship)
+    {
+        var objectName = ship.gameObject != null ? ship.gameObject.name : ship.name;
+        return string.IsNullOrWhiteSpace(objectName) ? ship.GetType().Name : objectName;
+    }
+
+    private static Ship? ResolveControlledShip(Player player, out string controllerDescription)
+    {
+        var directShip = player.GetControlledShip();
+        if (directShip != null)
+        {
+            controllerDescription = "Player.GetControlledShip";
+            return directShip;
+        }
+
+        var controller = player.GetDoodadController();
+        if (controller == null)
+        {
+            controllerDescription = "None";
+            return null;
+        }
+
+        var controlledComponent = controller.GetControlledComponent();
+        controllerDescription = controlledComponent == null
+            ? controller.GetType().Name
+            : $"{controller.GetType().Name}->{controlledComponent.GetType().Name}";
+
+        if (controlledComponent is Ship controlledShip)
+        {
+            return controlledShip;
+        }
+
+        if (controlledComponent == null)
+        {
+            return ResolveAttachedShip(player, ref controllerDescription);
+        }
+
+        var resolvedShip = controlledComponent.GetComponent<Ship>() ?? controlledComponent.GetComponentInParent<Ship>();
+        return resolvedShip ?? ResolveAttachedShip(player, ref controllerDescription);
+    }
+
+    private static Ship? ResolveAttachedShip(Player player, ref string controllerDescription)
+    {
+        Ship? nearestAttachedShip = null;
+        var nearestDistance = float.MaxValue;
+
+        foreach (var ship in FindObjectsByType<Ship>(FindObjectsSortMode.None))
+        {
+            if (ShipContainsPlayer(ship, player))
+            {
+                controllerDescription = AppendResolutionSource(controllerDescription, "Ship.m_players");
+                return ship;
+            }
+
+            if (!player.IsAttachedToShip())
+            {
+                continue;
+            }
+
+            var distance = Vector3.Distance(player.transform.position, ship.transform.position);
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearestAttachedShip = ship;
+            }
+        }
+
+        if (nearestAttachedShip != null && nearestDistance <= 25f)
+        {
+            controllerDescription = AppendResolutionSource(controllerDescription, $"NearestAttachedShip({nearestDistance:F1}m)");
+            return nearestAttachedShip;
+        }
+
+        return null;
+    }
+
+    private static bool ShipContainsPlayer(Ship ship, Player player)
+    {
+        if (ShipPlayersField?.GetValue(ship) is not List<Player> players)
+        {
+            return false;
+        }
+
+        return players.Contains(player);
+    }
+
+    private static string AppendResolutionSource(string currentDescription, string source)
+    {
+        if (string.IsNullOrWhiteSpace(currentDescription) || currentDescription == "None")
+        {
+            return source;
+        }
+
+        return $"{currentDescription}+{source}";
     }
 
     private void EnsurePlaceholderTrackExists(string trackDirectory)
     {
-        LogDebug("Ensuring placeholder bagpipe track exists.");
         var placeholderPath = Path.Combine(trackDirectory, PlaceholderTrackName);
         if (!File.Exists(placeholderPath))
         {
             File.WriteAllBytes(placeholderPath, Array.Empty<byte>());
-            LogInfo("Created ghost_bagpipe_track.mp3 placeholder. Replace with a real loop when available.");
+            LogInfo("Created placeholder track file. Replace it with a real MP3, OGG, or WAV file.");
         }
     }
 
     private void RefreshTrackLibrary()
     {
-        LogDebug("Refreshing track library from disk.");
-
         if (_trackDirectory == null)
         {
             return;
@@ -205,16 +451,17 @@ public class Plugin : BaseUnityPlugin
         _trackPaths = Directory
             .EnumerateFiles(_trackDirectory, "*.*", SearchOption.TopDirectoryOnly)
             .Where(path => SupportedExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            .Where(path => new FileInfo(path).Length > 0)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (_trackPaths.Count == 0)
         {
-            LogWarn($"No bagpipe tracks found in {_trackDirectory}. Playback will be skipped until files are added.");
+            LogWarn($"No playable bagpipe tracks found in {_trackDirectory}. Add non-empty MP3, OGG, or WAV files.");
+            return;
         }
-        else
-        {
-            LogInfo($"Loaded {_trackPaths.Count} bagpipe track(s) from {_trackDirectory}. A random clip will be selected per session.");
-        }
+
+        LogInfo($"Loaded {_trackPaths.Count} playable bagpipe track(s) from {_trackDirectory}.");
     }
 
     private void UpdateTrackDirectory(string directorySetting)
@@ -256,20 +503,19 @@ public class Plugin : BaseUnityPlugin
 
     private void StartBagpipes()
     {
-        LogDebug("Attempting to start bagpipe playback.");
-
         if (_audioSource == null)
         {
-            LogWarn("AudioSource missing; cannot play bagpipes.");
+            LogWarn("Audio source missing; cannot start playback.");
             return;
         }
+
+        SyncAudioSourceWithMusicMan();
 
         if (_trackPaths.Count == 0)
         {
             RefreshTrackLibrary();
             if (_trackPaths.Count == 0)
             {
-                LogWarn($"Still no available tracks after refresh (search path: {_trackDirectory}). Aborting playback request.");
                 return;
             }
         }
@@ -277,20 +523,21 @@ public class Plugin : BaseUnityPlugin
         var nextTrack = SelectRandomTrack();
         if (nextTrack == null)
         {
-            LogWarn("Random selection returned null; aborting playback.");
+            LogWarn("Track selection returned no result.");
             return;
         }
 
         _pendingPlayback = true;
+        _pendingTrackPath = nextTrack;
 
         if (_clipCache.TryGetValue(nextTrack, out var cachedClip) && cachedClip != null)
         {
-            LogDebug($"Using cached clip for {Path.GetFileName(nextTrack)}.");
             PlayClip(cachedClip, nextTrack);
             return;
         }
 
-        _pendingTrackPath = nextTrack;
+        CancelFade();
+
         if (_clipLoadRoutine != null)
         {
             StopCoroutine(_clipLoadRoutine);
@@ -299,43 +546,131 @@ public class Plugin : BaseUnityPlugin
         _clipLoadRoutine = StartCoroutine(LoadClipCoroutine(nextTrack));
     }
 
-    private void StopBagpipes(bool immediate = false)
+    private void PauseBagpipesForGrace()
     {
-        LogDebug($"Stopping bagpipes (immediate={immediate}).");
-
-        if (!_isPlaying || _audioSource == null)
+        if (_audioSource == null || _audioSource.clip == null)
         {
-            if (immediate)
-            {
-                CancelPendingPlayback();
-            }
             return;
         }
+
+        if (_isPausedForGrace)
+        {
+            return;
+        }
+
+        _isPlaying = false;
+        _isPausedForGrace = true;
+
+        StartFade(targetVolume: 0f, FadeOutDuration, () =>
+        {
+            if (_audioSource == null)
+            {
+                return;
+            }
+
+            if (_isPausedForGrace && Time.time <= _resumeUntil)
+            {
+                _audioSource.Pause();
+            }
+            else
+            {
+                _audioSource.Stop();
+                _audioSource.clip = null;
+                _isPausedForGrace = false;
+            }
+
+            SetGameMusicSuppressed(shouldSuppress: false);
+        });
+    }
+
+    private void ResumeBagpipes()
+    {
+        if (_audioSource == null || _audioSource.clip == null)
+        {
+            _isPausedForGrace = false;
+            StartBagpipes();
+            return;
+        }
+
+        CancelFade();
+
+        if (!_audioSource.isPlaying)
+        {
+            _audioSource.UnPause();
+        }
+
+        _isPausedForGrace = false;
+        _isPlaying = true;
+        SetGameMusicSuppressed(shouldSuppress: true);
+        StartFade(targetVolume: _volume!.Value, FadeInDuration);
+    }
+
+    private void StopBagpipes(bool immediate = false)
+    {
+        CancelPendingPlayback();
+
+        if (_audioSource == null)
+        {
+            _isPlaying = false;
+            _isPausedForGrace = false;
+            _resumeUntil = 0f;
+            return;
+        }
+
+        CancelFade();
+        _isPlaying = false;
+        _isPausedForGrace = false;
+        _resumeUntil = 0f;
 
         if (immediate)
         {
             _audioSource.Stop();
+            _audioSource.clip = null;
             _audioSource.volume = 0f;
-            _isPlaying = false;
-            ToggleMusicManMute(shouldMute: false);
-            CancelPendingPlayback();
+            SetGameMusicSuppressed(shouldSuppress: false);
             return;
         }
 
-        StartCoroutine(FadeVolume(targetVolume: 0f, FadeOutDuration, onComplete: () =>
+        StartFade(targetVolume: 0f, FadeOutDuration, () =>
         {
+            if (_audioSource == null)
+            {
+                return;
+            }
+
             _audioSource.Stop();
-            _isPlaying = false;
-            ToggleMusicManMute(shouldMute: false);
-        }));
+            _audioSource.clip = null;
+            SetGameMusicSuppressed(shouldSuppress: false);
+        });
+    }
+
+    private void StartFade(float targetVolume, float fadeDuration, Action? onComplete = null)
+    {
+        CancelFade();
+        _fadeRoutine = StartCoroutine(FadeVolume(targetVolume, fadeDuration, onComplete));
+    }
+
+    private void CancelFade()
+    {
+        if (_fadeRoutine != null)
+        {
+            StopCoroutine(_fadeRoutine);
+            _fadeRoutine = null;
+        }
     }
 
     private IEnumerator FadeVolume(float targetVolume, float fadeDuration, Action? onComplete = null)
     {
-        LogDebug($"Fading audio towards {targetVolume} over {fadeDuration}s.");
-
         if (_audioSource == null)
         {
+            yield break;
+        }
+
+        if (fadeDuration <= 0f)
+        {
+            _audioSource.volume = targetVolume;
+            _fadeRoutine = null;
+            onComplete?.Invoke();
             yield break;
         }
 
@@ -344,54 +679,84 @@ public class Plugin : BaseUnityPlugin
 
         while (elapsed < fadeDuration)
         {
+            if (_audioSource == null)
+            {
+                yield break;
+            }
+
             elapsed += Time.deltaTime;
             var t = Mathf.Clamp01(elapsed / fadeDuration);
             _audioSource.volume = Mathf.Lerp(startVolume, targetVolume, t);
             yield return null;
         }
 
-        _audioSource.volume = targetVolume;
+        if (_audioSource != null)
+        {
+            _audioSource.volume = targetVolume;
+        }
+
+        _fadeRoutine = null;
         onComplete?.Invoke();
     }
 
-    private void ToggleMusicManMute(bool shouldMute)
+    private void SetGameMusicSuppressed(bool shouldSuppress)
     {
-        LogDebug($"ToggleMusicManMute called with shouldMute={shouldMute}.");
-
-        var musicMan = MusicMan.instance;
-        if (musicMan == null)
-        {
-            LogWarn("MusicMan instance not found; cannot toggle default soundtrack.");
-            return;
-        }
-
-        var source = musicMan.m_musicSource;
+        var source = GetMusicManAudioSource();
         if (source == null)
         {
-            LogWarn("MusicMan audio source missing.");
             return;
         }
 
-        if (shouldMute && !_musicManMuted)
+        if (shouldSuppress && !_musicManSuppressed)
         {
             _storedMusicVolume = source.volume;
+            _musicManWasPlaying = source.isPlaying;
             source.volume = 0f;
-            source.Stop();
-            _musicManMuted = true;
-            LogInfo("MusicMan muted.");
+
+            if (_musicManWasPlaying)
+            {
+                source.Pause();
+            }
+
+            _musicManSuppressed = true;
+            return;
         }
-        else if (!shouldMute && _musicManMuted)
+
+        if (!shouldSuppress && _musicManSuppressed)
         {
             source.volume = _storedMusicVolume;
-            _musicManMuted = false;
-            LogInfo("MusicMan restored.");
+
+            if (_musicManWasPlaying)
+            {
+                source.UnPause();
+            }
+
+            _musicManSuppressed = false;
+            _musicManWasPlaying = false;
+        }
+    }
+
+    private AudioSource? GetMusicManAudioSource()
+    {
+        var musicMan = MusicMan.instance;
+        if (musicMan == null || MusicManMusicSourceField == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return MusicManMusicSourceField.GetValue(musicMan) as AudioSource;
+        }
+        catch (Exception ex)
+        {
+            LogWarn($"Unable to resolve MusicMan audio source via reflection: {ex.GetType().Name}: {ex.Message}");
+            return null;
         }
     }
 
     private string? SelectRandomTrack()
     {
-        LogDebug("Selecting a random bagpipe track.");
-
         if (_trackPaths.Count == 0)
         {
             return null;
@@ -403,7 +768,7 @@ public class Plugin : BaseUnityPlugin
 
     private IEnumerator LoadClipCoroutine(string trackPath)
     {
-        LogInfo($"Loading track {Path.GetFileName(trackPath)} from disk.");
+        LogInfo($"Loading track {Path.GetFileName(trackPath)}.");
 
         var uri = new Uri(trackPath);
         var audioType = GetAudioTypeForExtension(Path.GetExtension(trackPath));
@@ -415,16 +780,18 @@ public class Plugin : BaseUnityPlugin
         {
             LogError($"Failed to load {trackPath}: {request.error}");
             _pendingPlayback = false;
+            _pendingTrackPath = null;
             _clipLoadRoutine = null;
             yield break;
         }
 
         var clip = DownloadHandlerAudioClip.GetContent(request);
+        clip.name = Path.GetFileNameWithoutExtension(trackPath);
         _clipCache[trackPath] = clip;
+        LogInfo($"Loaded clip metadata: length={clip.length:F1}s channels={clip.channels} frequency={clip.frequency}.");
 
         if (!_pendingPlayback || _pendingTrackPath != trackPath)
         {
-            LogDebug("Clip loaded but playback is no longer pending.");
             _clipLoadRoutine = null;
             yield break;
         }
@@ -435,37 +802,53 @@ public class Plugin : BaseUnityPlugin
 
     private void PlayClip(AudioClip clip, string trackPath)
     {
-        LogInfo($"Starting clip {Path.GetFileName(trackPath)}.");
-
         if (_audioSource == null)
         {
-            LogWarn("AudioSource missing during PlayClip.");
+            LogWarn("Audio source missing during playback start.");
             return;
         }
 
+        LogInfo($"Starting clip {Path.GetFileName(trackPath)}.");
+
+        CancelFade();
+
         _pendingPlayback = false;
         _pendingTrackPath = null;
+        _isPausedForGrace = false;
+        _isPlaying = true;
 
         _audioSource.clip = clip;
         _audioSource.volume = 0f;
+        _audioSource.mute = false;
         _audioSource.Play();
-        _isPlaying = true;
 
-        StartCoroutine(FadeVolume(targetVolume: _volume!.Value, FadeInDuration));
-        ToggleMusicManMute(shouldMute: true);
+        SetGameMusicSuppressed(shouldSuppress: true);
+        StartFade(targetVolume: _volume!.Value, FadeInDuration);
     }
 
     private void CancelPendingPlayback()
     {
-        LogDebug("Cancelling pending playback request.");
-
         _pendingPlayback = false;
         _pendingTrackPath = null;
+
         if (_clipLoadRoutine != null)
         {
             StopCoroutine(_clipLoadRoutine);
             _clipLoadRoutine = null;
         }
+    }
+
+    private void ClearClipCache()
+    {
+        foreach (var clip in _clipCache.Values)
+        {
+            if (clip != null)
+            {
+                Destroy(clip);
+            }
+        }
+
+        _clipCache.Clear();
     }
 
     private static AudioType GetAudioTypeForExtension(string extension)

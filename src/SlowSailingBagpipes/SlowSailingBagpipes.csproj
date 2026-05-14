@@ -10,7 +10,7 @@
     <AssemblyName>SailingBagpipes</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="BepInEx.Core" Version="5.*" />
+    <PackageReference Include="BepInEx.Core" Version="5.4.19" />
     <PackageReference Include="JotunnLib" Version="2.*" />
   </ItemGroup>
 </Project>
