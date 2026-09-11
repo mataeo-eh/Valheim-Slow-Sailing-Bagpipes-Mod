@@ -71,7 +71,7 @@ BepInEx/config/eh.mataeo.valheim.slowsailingbagpipes.cfg
 ```ini
 [General]
 Enabled = true              # Master toggle (true/false)
-Volume = 0.85               # Music volume (0.0 to 1.0)
+Volume = 0.85               # Bagpipe volume (0.0 to 1.0), scaled by the in-game Master and Music sliders
 
 [Audio]
 TrackDirectory = BagPipesTracks  # Audio folder (relative or absolute path)
@@ -94,7 +94,8 @@ TrackDirectory = BagPipesTracks  # Audio folder (relative or absolute path)
 
 ### Want different music volume?
 
-- Edit the config file and change `Volume = 0.85` (0.0 to 1.0)
+- The bagpipes follow the in-game **Master** and **Music** volume sliders, so adjust those first
+- To change the bagpipes relative to the game's music, edit the config file and change `Volume = 0.85` (0.0 to 1.0)
 - `Volume` and `TrackDirectory` changes apply immediately while the mod is running
 
 ## Technical Details

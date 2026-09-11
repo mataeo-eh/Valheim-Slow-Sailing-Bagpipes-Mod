@@ -326,7 +326,7 @@ Valheim/BepInEx/config/eh.mataeo.valheim.slowsailingbagpipes.cfg
 # Default value: true
 Enabled = true
 
-## Playback volume (0.0 - 1.0)
+## Bagpipe volume, applied on top of the in-game Master and Music volume sliders (1.0 = as loud as those sliders allow).
 # Setting type: Single
 # Default value: 0.85
 Volume = 0.85
@@ -343,6 +343,8 @@ TrackDirectory = BagPipesTracks
 ```ini
 TrackDirectory = C:\MyValheimMusic\Bagpipes
 ```
+
+The bagpipes' effective volume is `Volume` × the in-game Master slider × the in-game Music slider, re-applied every frame, so both config and slider changes take effect live.
 
 `Volume` and `TrackDirectory` changes are applied live while the mod is running. If you add or replace files inside the same directory, restart Valheim or change `TrackDirectory` to force a rescan.
 
@@ -393,7 +395,8 @@ Before testing in-game:
    - Timer requirement: 0.1 seconds of continuous eligible rowing
 4. **Expected behavior:**
    - After about 0.1 seconds: Bagpipe music starts fading in (1.5 second fade)
-   - Game music (MusicMan) volume is reduced to 0
+   - Game music (MusicMan) is muted
+   - Bagpipe loudness follows the in-game Master and Music sliders (Music at 0 = silent)
    - Bagpipe music loops seamlessly
 
 #### 4. Test Backward Rowing Trigger
@@ -411,7 +414,7 @@ Before testing in-game:
    - Release W/S, or change speed
 2. **Expected behavior:**
    - Music fades out (0.5 seconds - quick fade)
-   - Game music resumes at normal volume
+   - Game music is unmuted and resumes at its normal volume
    - Grace period of 10 seconds granted
 
 #### 6. Test Grace Period
@@ -445,6 +448,7 @@ Before testing in-game:
 - [ ] Grace period works (resume within 10 sec = instant restart)
 - [ ] Random selection works with multiple files
 - [ ] Config file changes take effect (test Volume setting)
+- [ ] In-game Master and Music sliders change bagpipe loudness live (Music at 0 silences them)
 
 ### Debug Logging
 
@@ -640,8 +644,8 @@ The mod runs `Update()` every frame and checks:
    - Select random track from `_trackPaths` list
    - Check if already cached in `_clipCache` dictionary
    - If not cached, start coroutine to load via `UnityWebRequestMultimedia`
-   - Fade in volume from 0 to configured volume (1.5 seconds)
-   - Pause `MusicMan` if it was already playing and restore it later
+   - Fade in from silent to the effective volume (`Volume` × in-game Master × Music) over 1.5 seconds
+   - Mute `MusicMan`'s audio source so vanilla music doesn't play over the bagpipes
 
 #### Stop Logic
 
@@ -653,9 +657,9 @@ When player stops rowing or exceeds slow speed:
    - If rowing resumes within 10 seconds, the paused clip resumes
 
 2. **Fade out music:**
-   - Fade volume from current to 0 (0.5 seconds - quick fade)
+   - Fade to silent (0.5 seconds - quick fade)
    - If grace expires, stop playback and clear the clip
-   - Restore `MusicMan` volume and playback state
+   - Unmute `MusicMan`'s audio source
 
 #### Audio Loading
 
@@ -685,7 +689,7 @@ Config changes detected via event:
 Config.SettingChanged += (_, args) => { ... }
 ```
 
-- `Volume` updates the active audio source immediately while playing
+- `Volume` is re-applied to the audio source immediately (see Known Limitations, item 5, for how volume is computed)
 - `TrackDirectory` stops playback, clears the clip cache, and reloads the track library immediately
 
 ### Performance Considerations
@@ -713,6 +717,17 @@ Config.SettingChanged += (_, args) => { ... }
      volume every frame and calls `Play()` on track changes, which undoes a Pause
    - `AudioSource.mute` is never written by Valheim itself, so the mod owns it exclusively
    - May need updates if Valheim changes the music system
+
+5. **Volume settings:** bagpipe loudness is `fade level × Volume config × MusicMan.m_masterMusicVolume`
+   - Valheim 1.0 applies neither the Master nor the Music slider through the audio mixer, and it
+     pins `AudioListener.volume` at 1 (it only changes during cinematics)
+   - Instead the settings menu (`AudioSettings.SetGlobalVolumeExceptHaptics`) stores
+     Master × Music in the public static `MusicMan.m_masterMusicVolume`, and
+     `MusicMan.UpdateMusic` multiplies that into its own source's volume by hand every frame
+   - So copying MusicMan's mixer group is not enough. Before 1.0.7 the bagpipes ignored both
+     sliders and always played at the raw `Volume` config
+   - The effective volume is re-applied every frame, so slider changes take effect live
+   - May need updates if Valheim ever moves volume control into the mixer
 
 ---
 

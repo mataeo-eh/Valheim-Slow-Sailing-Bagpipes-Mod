@@ -1,6 +1,6 @@
 {
   "name": "SlowSailingBagpipes",
-  "version_number": "1.0.6",
+  "version_number": "1.0.7",
   "website_url": "https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod",
   "description": "Play custom bagpipe music while rowing your Viking longship! Starts when you row forward or backward.",
   "dependencies": [

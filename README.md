@@ -105,11 +105,13 @@ After first launch, the mod creates a config file at:
 ```ini
 [General]
 Enabled = true              # Master toggle (true/false)
-Volume = 0.85               # Music volume (0.0 to 1.0)
+Volume = 0.85               # Bagpipe volume (0.0 to 1.0), scaled by the in-game Master and Music sliders
 
 [Audio]
 TrackDirectory = BagPipesTracks  # Audio folder path (relative or absolute)
 ```
+
+The bagpipes follow Valheim's own **Master** and **Music** volume sliders, including changes made while they play. `Volume` sets their loudness on top of those sliders.
 
 `Volume` and `TrackDirectory` changes apply immediately while the mod is running. If you add or replace audio files inside the same folder, restart Valheim to force the mod to rescan them.
 
@@ -146,7 +148,7 @@ TrackDirectory = BagPipesTracks  # Audio folder path (relative or absolute)
 
 ### Music is too loud/quiet
 
-Edit the config file and change `Volume = 0.85` (range: 0.0 to 1.0)
+The bagpipes follow the in-game **Master** and **Music** volume sliders, so adjust those first. To change the bagpipes relative to the rest of the game's music, edit the config file and change `Volume = 0.85` (range: 0.0 to 1.0).
 
 For more troubleshooting, see **[INSTALLATION.md](INSTALLATION.md#troubleshooting)**.
 

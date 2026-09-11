@@ -5,6 +5,23 @@ All notable changes to the Valheim Slow Sailing Bagpipes mod will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-09-11
+
+### Fixed
+- **The bagpipes now respect Valheim's volume settings.** They used to play at a fixed
+  loudness wherever the in-game **Master** and **Music** sliders were set, even with music
+  turned all the way down. Valheim 1.0 doesn't apply those sliders through the audio mixer:
+  `MusicMan` multiplies them into its own music source by hand (via the static
+  `MusicMan.m_masterMusicVolume`). Routing the bagpipes to the music bus, as earlier versions
+  did, never picked them up. Bagpipe volume is now `Volume` config × Master × Music, the same
+  scaling vanilla music uses.
+- Moving the in-game volume sliders now changes bagpipe loudness immediately, even mid-fade.
+
+### Changed
+- The `Volume` config setting is now relative to the in-game volume sliders instead of
+  absolute. At default game settings (Master and Music at 100%) the default `0.85` sounds the
+  same as before.
+
 ## [1.0.6] - 2026-09-11
 
 ### Fixed

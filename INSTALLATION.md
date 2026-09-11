@@ -319,7 +319,7 @@ Result: 3 tracks loaded, random selection working!
 ```ini
 [General]
 Enabled = true      # Make sure it's true!
-Volume = 0.85       # 0.0 to 1.0
+Volume = 0.85       # 0.0 to 1.0, scaled by the in-game Master and Music sliders
 
 [Audio]
 TrackDirectory = BagPipesTracks  # Check path is correct
@@ -342,9 +342,10 @@ TrackDirectory = BagPipesTracks  # Check path is correct
 ### Mod works but music is too loud/quiet
 
 **Adjust volume**:
-1. Edit config: `eh.mataeo.valheim.slowsailingbagpipes.cfg`
-2. Change: `Volume = 0.85` (0.0 to 1.0)
-3. Save; the new volume applies immediately
+1. The bagpipes follow Valheim's in-game **Master** and **Music** volume sliders. Adjust those first.
+2. To change the bagpipes relative to the game's music, edit config: `eh.mataeo.valheim.slowsailingbagpipes.cfg`
+3. Change: `Volume = 0.85` (0.0 to 1.0)
+4. Save; the new volume applies immediately
 
 ---
 

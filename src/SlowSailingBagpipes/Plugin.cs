@@ -61,6 +61,11 @@ public class Plugin : BaseUnityPlugin
     private bool _musicManSuppressed;
     private bool _audioSourceConfiguredFromMusicMan;
 
+    // How far the current fade has progressed, from 0 (silent) to 1 (full). Kept separate from
+    // AudioSource.volume so the Volume config and the game's own volume sliders can change while
+    // a clip is playing - even mid-fade - without disturbing the fade. See ApplyEffectiveVolume.
+    private float _fadeLevel;
+
     // Instance ID of the MusicMan our audio source was configured from. Valheim rebuilds
     // MusicMan across scene loads (main menu <-> world), so the cached mixer group and any
     // suppression we applied belong to a destroyed object once this changes. Tracking the
@@ -79,7 +84,7 @@ public class Plugin : BaseUnityPlugin
         _fileLogger = new PluginLogger(PluginName, _pluginDirectory);
 
         _enabled = Config.Bind("General", "Enabled", true, "Master toggle for the Slow Sailing Bagpipes mod.");
-        _volume = Config.Bind("General", "Volume", 0.85f, new ConfigDescription("Playback volume for the bagpipe loop.", new AcceptableValueRange<float>(0f, 1f)));
+        _volume = Config.Bind("General", "Volume", 0.85f, new ConfigDescription("Bagpipe volume, applied on top of the in-game Master and Music volume sliders (1.0 = as loud as those sliders allow).", new AcceptableValueRange<float>(0f, 1f)));
         _trackDirectoryConfig = Config.Bind(
             "Audio",
             "TrackDirectory",
@@ -129,6 +134,9 @@ public class Plugin : BaseUnityPlugin
         SyncAudioSourceWithMusicMan();
         ReassertMusicSuppression();
 
+        // Re-applied every frame so moving the in-game volume sliders takes effect immediately.
+        ApplyEffectiveVolume();
+
         var player = Player.m_localPlayer;
         if (player == null)
         {
@@ -165,11 +173,8 @@ public class Plugin : BaseUnityPlugin
 
         if (args.ChangedSetting == _volume)
         {
-            if (_isPlaying)
-            {
-                _audioSource.volume = _volume!.Value;
-            }
-
+            // Safe to apply unconditionally: when nothing is playing the fade level is 0.
+            ApplyEffectiveVolume();
             return;
         }
 
@@ -584,7 +589,7 @@ public class Plugin : BaseUnityPlugin
         _isPlaying = false;
         _isPausedForGrace = true;
 
-        StartFade(targetVolume: 0f, FadeOutDuration, () =>
+        StartFade(targetLevel: 0f, FadeOutDuration, () =>
         {
             if (_audioSource == null)
             {
@@ -625,7 +630,7 @@ public class Plugin : BaseUnityPlugin
         _isPausedForGrace = false;
         _isPlaying = true;
         SetGameMusicSuppressed(shouldSuppress: true);
-        StartFade(targetVolume: _volume!.Value, FadeInDuration);
+        StartFade(targetLevel: 1f, FadeInDuration);
     }
 
     private void StopBagpipes(bool immediate = false)
@@ -649,12 +654,13 @@ public class Plugin : BaseUnityPlugin
         {
             _audioSource.Stop();
             _audioSource.clip = null;
-            _audioSource.volume = 0f;
+            _fadeLevel = 0f;
+            ApplyEffectiveVolume();
             SetGameMusicSuppressed(shouldSuppress: false);
             return;
         }
 
-        StartFade(targetVolume: 0f, FadeOutDuration, () =>
+        StartFade(targetLevel: 0f, FadeOutDuration, () =>
         {
             if (_audioSource == null)
             {
@@ -667,10 +673,17 @@ public class Plugin : BaseUnityPlugin
         });
     }
 
-    private void StartFade(float targetVolume, float fadeDuration, Action? onComplete = null)
+    /// <summary>
+    /// Starts moving the fade level toward <paramref name="targetLevel"/>, replacing any fade in progress.
+    /// </summary>
+    /// <param name="targetLevel">Fade level to reach: 0 = silent, 1 = full effective volume.</param>
+    /// <param name="fadeDuration">How many seconds the fade should take.</param>
+    /// <param name="onComplete">Optional callback run once the fade finishes.</param>
+    /// <remarks>Depends on <see cref="CancelFade"/> and <see cref="FadeVolume"/>.</remarks>
+    private void StartFade(float targetLevel, float fadeDuration, Action? onComplete = null)
     {
         CancelFade();
-        _fadeRoutine = StartCoroutine(FadeVolume(targetVolume, fadeDuration, onComplete));
+        _fadeRoutine = StartCoroutine(FadeVolume(targetLevel, fadeDuration, onComplete));
     }
 
     private void CancelFade()
@@ -682,7 +695,19 @@ public class Plugin : BaseUnityPlugin
         }
     }
 
-    private IEnumerator FadeVolume(float targetVolume, float fadeDuration, Action? onComplete = null)
+    /// <summary>
+    /// Coroutine that moves <see cref="_fadeLevel"/> linearly to <paramref name="targetLevel"/> over
+    /// <paramref name="fadeDuration"/> seconds, pushing the resulting volume to the AudioSource each frame.
+    /// </summary>
+    /// <param name="targetLevel">Fade level to reach: 0 = silent, 1 = full effective volume.</param>
+    /// <param name="fadeDuration">How many seconds the fade should take.</param>
+    /// <param name="onComplete">Optional callback run once the fade finishes.</param>
+    /// <remarks>
+    /// It fades the normalized level rather than AudioSource.volume itself, so the actual volume keeps
+    /// following the game's sliders and the Volume config throughout the fade.
+    /// Started by <see cref="StartFade"/>; depends on <see cref="ApplyEffectiveVolume"/>.
+    /// </remarks>
+    private IEnumerator FadeVolume(float targetLevel, float fadeDuration, Action? onComplete = null)
     {
         if (_audioSource == null)
         {
@@ -691,13 +716,14 @@ public class Plugin : BaseUnityPlugin
 
         if (fadeDuration <= 0f)
         {
-            _audioSource.volume = targetVolume;
+            _fadeLevel = targetLevel;
+            ApplyEffectiveVolume();
             _fadeRoutine = null;
             onComplete?.Invoke();
             yield break;
         }
 
-        var startVolume = _audioSource.volume;
+        var startLevel = _fadeLevel;
         var elapsed = 0f;
 
         while (elapsed < fadeDuration)
@@ -709,18 +735,56 @@ public class Plugin : BaseUnityPlugin
 
             elapsed += Time.deltaTime;
             var t = Mathf.Clamp01(elapsed / fadeDuration);
-            _audioSource.volume = Mathf.Lerp(startVolume, targetVolume, t);
+            _fadeLevel = Mathf.Lerp(startLevel, targetLevel, t);
+            ApplyEffectiveVolume();
             yield return null;
         }
 
-        if (_audioSource != null)
-        {
-            _audioSource.volume = targetVolume;
-        }
+        _fadeLevel = targetLevel;
+        ApplyEffectiveVolume();
 
         _fadeRoutine = null;
         onComplete?.Invoke();
     }
+
+    /// <summary>
+    /// Sets the AudioSource to the bagpipes' effective volume:
+    /// fade level × the mod's Volume config × the player's in-game music volume.
+    /// </summary>
+    /// <remarks>
+    /// Routing the bagpipes to MusicMan's mixer group (see <see cref="SyncAudioSourceWithMusicMan"/>)
+    /// does NOT make them obey the player's volume settings, because Valheim 1.0 applies neither the
+    /// Master nor the Music slider through the audio mixer, and pins AudioListener.volume at 1. Instead,
+    /// the settings menu stores Master × Music in the static MusicMan.m_masterMusicVolume, and
+    /// MusicMan.UpdateMusic multiplies that into its own source's volume by hand every frame. Any other
+    /// source on the music bus therefore plays at full loudness no matter where the sliders sit - which
+    /// is how earlier versions of this mod ignored the volume settings. Doing the same multiplication
+    /// here fixes that.
+    /// Called every frame from <see cref="Update"/> (so slider changes apply live), on every step of
+    /// <see cref="FadeVolume"/>, and when the Volume config changes. Depends on <see cref="GetGameMusicVolume"/>.
+    /// </remarks>
+    private void ApplyEffectiveVolume()
+    {
+        if (_audioSource == null || _volume == null)
+        {
+            return;
+        }
+
+        var configVolume = Mathf.Clamp01(_volume.Value);
+        _audioSource.volume = _fadeLevel * configVolume * GetGameMusicVolume();
+    }
+
+    /// <summary>
+    /// Returns the player's in-game music volume, 0 to 1: the Master slider × the Music slider.
+    /// </summary>
+    /// <returns>The same factor Valheim scales its own music by.</returns>
+    /// <remarks>
+    /// Reads the public static MusicMan.m_masterMusicVolume. Valheim loads it from the saved settings in
+    /// MusicMan.Awake and updates it live while the settings sliders move (and reverts it if the player
+    /// backs out of the menu). Because it is static, it stays valid between scenes, when no MusicMan
+    /// instance exists. Called by <see cref="ApplyEffectiveVolume"/>.
+    /// </remarks>
+    private static float GetGameMusicVolume() => Mathf.Clamp01(MusicMan.m_masterMusicVolume);
 
     /// <summary>
     /// Silences (or restores) Valheim's own music while the bagpipes play.
@@ -858,12 +922,13 @@ public class Plugin : BaseUnityPlugin
         _isPlaying = true;
 
         _audioSource.clip = clip;
-        _audioSource.volume = 0f;
+        _fadeLevel = 0f;
+        ApplyEffectiveVolume();
         _audioSource.mute = false;
         _audioSource.Play();
 
         SetGameMusicSuppressed(shouldSuppress: true);
-        StartFade(targetVolume: _volume!.Value, FadeInDuration);
+        StartFade(targetLevel: 1f, FadeInDuration);
     }
 
     private void CancelPendingPlayback()

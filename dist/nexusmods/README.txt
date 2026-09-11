@@ -122,7 +122,7 @@ After first launch, edit:
 Settings:
 [General]
 Enabled = true           # Master on/off switch
-Volume = 0.85            # Music volume (0.0 to 1.0)
+Volume = 0.85            # Bagpipe volume (0.0 to 1.0), scaled by in-game Master and Music sliders
 
 [Audio]
 TrackDirectory = BagPipesTracks  # Music folder location
@@ -143,8 +143,9 @@ Mod doesn't load:
 - Verify SailingBagpipes.dll is in BepInEx\plugins\
 
 Music volume too loud/quiet:
-- Edit config file: change "Volume = 0.85"
-- Range: 0.0 (silent) to 1.0 (full)
+- The bagpipes follow the in-game Master and Music volume sliders - adjust those first
+- To change the bagpipes relative to the game's music, edit config file: change "Volume = 0.85"
+- Range: 0.0 (silent) to 1.0 (as loud as the in-game sliders allow)
 
 ===========================================
 COMPATIBILITY
