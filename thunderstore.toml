@@ -5,10 +5,14 @@
 # reads for the description and dependency list. This file therefore exists only to tell tcli
 # WHERE to publish (repository + communities) and to identify the package.
 #
-# Deliberately do NOT duplicate the description or dependencies here - dist/thunderstore/
-# manifest.json is the single source of truth for those, and release.ps1 passes the version
-# from the repo-root VERSION file on the command line. Duplicating them would recreate exactly
-# the drift problem the VERSION file was introduced to remove.
+# tcli does not accept --package-version alongside --file, so release.ps1 stamps the
+# versionNumber below from the repo-root VERSION file immediately before publishing - the same
+# way it stamps dist/thunderstore/manifest.json. Do not edit versionNumber by hand.
+#
+# dist/thunderstore/manifest.json remains the source of truth for the description and the
+# dependency list; the copy of the description here is only what tcli requires to parse this
+# file. Duplicating the dependency list would recreate exactly the drift problem the VERSION
+# file was introduced to remove.
 
 [config]
 schemaVersion = "0.0.1"
@@ -16,9 +20,8 @@ schemaVersion = "0.0.1"
 [package]
 namespace = "Therunner"
 name = "SlowSailingBagpipes"
-# Placeholder only. release.ps1 always passes --package-version from the VERSION file,
-# which overrides this value.
-versionNumber = "0.0.0"
+# Stamped by release.ps1 from the repo-root VERSION file. Do not edit by hand.
+versionNumber = "1.0.6"
 description = "Play custom bagpipe music while rowing your Viking longship!"
 websiteUrl = "https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod"
 containsNsfwContent = false

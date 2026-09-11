@@ -337,13 +337,21 @@ if ($SkipThunderstore) {
 } else {
     Write-Step "Publishing to Thunderstore"
     Write-Note "$($config.thunderstore.namespace)/$($config.thunderstore.packageName) $version -> $($config.thunderstore.community)"
-    & tcli publish `
-        --file $tsZip `
-        --token $env:TCLI_AUTH_TOKEN `
-        --package-name $config.thunderstore.packageName `
-        --package-namespace $config.thunderstore.namespace `
-        --package-version $version `
-        --config-path (Join-Path $RepoRoot 'thunderstore.toml')
+
+    # tcli rejects --package-name/--package-namespace/--package-version alongside --file:
+    # when publishing a prebuilt archive the identity comes from thunderstore.toml and the
+    # zip's own manifest.json. So stamp the toml's versionNumber from VERSION first, the same
+    # way manifest.json is stamped, rather than leaving a placeholder that could get published.
+    $tomlPath = Join-Path $RepoRoot 'thunderstore.toml'
+    $toml     = [System.IO.File]::ReadAllText($tomlPath)
+    $stamped  = [regex]::Replace($toml, '(?m)^(versionNumber\s*=\s*")[^"]*(")', "`${1}$version`${2}")
+    if ($stamped -notmatch [regex]::Escape("versionNumber = `"$version`"")) {
+        Fail "Could not stamp versionNumber into thunderstore.toml"
+    }
+    [System.IO.File]::WriteAllText($tomlPath, $stamped, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Note "thunderstore.toml versionNumber set to $version"
+
+    & tcli publish --file $tsZip --token $env:TCLI_AUTH_TOKEN --config-path $tomlPath
     if ($LASTEXITCODE -ne 0) { Fail "tcli publish failed with exit code $LASTEXITCODE" }
     Write-Ok "Published to Thunderstore"
 }
