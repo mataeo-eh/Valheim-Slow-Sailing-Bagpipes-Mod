@@ -20,7 +20,9 @@ public class Plugin : BaseUnityPlugin
 {
     private const string PluginGuid = "eh.mataeo.valheim.slowsailingbagpipes";
     private const string PluginName = "SlowSailingBagpipes";
-    private const string PluginVersion = "1.0.6";
+    // Sourced from the repo-root VERSION file at build time (see SlowSailingBagpipes.csproj).
+    // Never hardcode a version here - release.ps1 bumps VERSION and everything follows from it.
+    private const string PluginVersion = GeneratedModVersion.Value;
 
     private const float PaddleThresholdSeconds = 0.1f;
     private const float ResumeGraceSeconds = 10f;

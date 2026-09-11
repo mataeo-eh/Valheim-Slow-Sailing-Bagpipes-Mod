@@ -595,12 +595,20 @@ For rapid testing:
 
 ### Version Control
 
-Current version: **1.0.6** (defined in `Plugin.cs`)
+Current version: **1.0.6** (defined in the repo-root `VERSION` file)
+
+`VERSION` is the single source of truth. The build reads it and generates
+`GeneratedModVersion.cs` into `obj/`, which `Plugin.cs` uses for `[BepInPlugin]`; the packaging
+scripts and both publish steps read it too. Never hardcode a version in `Plugin.cs`,
+`manifest.json` or the `.bat` files.
 
 To update version:
-1. Edit `Plugin.cs`: `private const string PluginVersion = "1.0.5";`
-2. Rebuild
-3. Update changelog/README if needed
+1. Edit `VERSION` (e.g. `1.0.7`)
+2. Update `CHANGELOG.md`
+3. Rebuild - or just run `.\release.ps1 -DryRun`, which rebuilds, repackages and verifies that
+   the compiled DLL really reports the new version
+
+See [RELEASE_AUTOMATION.md](RELEASE_AUTOMATION.md) for publishing.
 
 ---
 

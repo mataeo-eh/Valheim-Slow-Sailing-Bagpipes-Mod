@@ -55,24 +55,50 @@ Before creating packages, verify everything is ready:
 
 ---
 
-## Building Release Packages
+## Automated release (recommended)
+
+Both platforms can be released with one command. See **[RELEASE_AUTOMATION.md](RELEASE_AUTOMATION.md)**
+for full detail.
+
+```powershell
+.\release.ps1 -DryRun   # build, package and verify without publishing
+.\release.ps1           # publish to Thunderstore and Nexus
+```
+
+**Always dry-run first** - Thunderstore versions are immutable and cannot be replaced.
+
+---
+
+## Building Release Packages (manual)
 
 ### Step 1: Update Version Number
 
-Edit `src/SlowSailingBagpipes/Plugin.cs`:
+Edit the repo-root **`VERSION`** file. That is the only place a version is authored:
 
-```csharp
-private const string PluginVersion = "1.0.5"; // Update this
+```
+1.0.6
 ```
 
-### Step 2: Update Manifest (Thunderstore)
+Everything downstream reads it - the compiled DLL's `[BepInPlugin]` attribute and
+`AssemblyVersion`, `dist/thunderstore/manifest.json`, the package zip filenames, and both
+publish steps. **Do not hardcode a version anywhere else.**
 
-Edit `dist/thunderstore/manifest.json`:
+**IMPORTANT**: Version format must be `major.minor.patch` (e.g., 1.0.0, 1.2.3). `release.ps1`
+rejects anything else.
+
+### Step 2: Manifest (Thunderstore) - automatic
+
+`dist/thunderstore/manifest.json` no longer needs a manual edit for the version;
+`package_thunderstore.bat` stamps `version_number` from `VERSION` on every build via
+`tools/Set-ManifestVersion.ps1`.
+
+Edit the manifest by hand only to change the description or the dependency list - for example
+when a new BepInEx pack is required:
 
 ```json
 {
   "name": "SlowSailingBagpipes",
-  "version_number": "1.0.5",  // Update this (must match PluginVersion)
+  "version_number": "1.0.6",
   "website_url": "https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod",
   "description": "Play custom bagpipe music while rowing your Viking longship!",
   "dependencies": [
@@ -80,8 +106,6 @@ Edit `dist/thunderstore/manifest.json`:
   ]
 }
 ```
-
-**IMPORTANT**: Version format must be `major.minor.patch` (e.g., 1.0.0, 1.2.3)
 
 ### Step 3: Update CHANGELOG.md
 

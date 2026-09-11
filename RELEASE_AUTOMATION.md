@@ -1,142 +1,154 @@
-# Automating Releases to Thunderstore and Nexus Mods
+# Automated Releases to Thunderstore and Nexus Mods
 
-Research notes and a concrete plan for letting a script (or a coding agent) push a new build
-to both platforms deterministically.
+This repo can publish a release to both platforms with one command:
 
-**Short version:** Thunderstore is fully automatable, including publishing brand-new versions.
-Nexus Mods is *partially* automatable — the Upload API (open beta since March 2026) can push a
-new file to a mod page that already exists, but it cannot create a new mod page. So the ideal
-end state is: one command publishes to Thunderstore outright and uploads a new version to an
-existing Nexus mod page.
+```powershell
+.\release.ps1 -DryRun   # build, package, verify - publishes nothing
+.\release.ps1           # the real thing
+```
 
----
-
-## Blocker to fix first: the version number lives in four places
-
-Right now `1.0.6` is written independently in:
-
-| File | Form |
-|------|------|
-| `src/SlowSailingBagpipes/Plugin.cs` | `private const string PluginVersion = "1.0.6";` |
-| `dist/thunderstore/manifest.json` | `"version_number": "1.0.6"` |
-| `package_thunderstore.bat` | `set "VERSION=1.0.6"` |
-| `package_nexus.bat` | `set "VERSION=1.0.6"` |
-
-Any automation built on top of this is only as deterministic as the human who remembered to
-update all four. **Single-source the version before wiring up publishing.** Recommended: a
-`VERSION` file at the repo root, read by the build and stamped into the other three at package
-time. This is a prerequisite, not a nice-to-have — a mismatch between `PluginVersion` and
-`manifest.json` is exactly the kind of error that produces a silently broken Thunderstore
-listing.
+**Always run `-DryRun` first.** Thunderstore package versions are immutable: once `1.0.6` is
+published it can never be replaced or deleted, only superseded by `1.0.7`.
 
 ---
 
-## Thunderstore — fully automatable
+## How the version stays consistent
 
-Thunderstore's official CLI is [`tcli`](https://github.com/thunderstore-io/thunderstore-cli).
+The repo-root **`VERSION`** file is the single source of truth. Nothing else authors a version
+number:
 
-### One-time setup
+| Consumer | How it gets the version |
+|----------|-------------------------|
+| The compiled DLL (`[BepInPlugin]`, `AssemblyVersion`) | `SlowSailingBagpipes.csproj` reads `VERSION` at build time and generates `GeneratedModVersion.cs` into `obj/` |
+| `dist/thunderstore/manifest.json` | `package_thunderstore.bat` stamps it via `tools/Set-ManifestVersion.ps1` |
+| Package zip filenames | both `package_*.bat` read `VERSION` |
+| Thunderstore publish | `release.ps1` passes `--package-version` |
+| Nexus upload | `release.ps1` sets `INPUT_VERSION` |
 
-1. On Thunderstore, open your **Team** page → **Service Accounts** tab → **Add Service Account**.
-2. Copy the API token it generates (shown once).
-3. Store it as `TCLI_AUTH_TOKEN` — a GitHub repository secret for CI, or a local environment
-   variable / secret manager entry for local runs. Do **not** put it in `thunderstore.toml`.
+`release.ps1` then *verifies* rather than trusts: after building it reads the version back out
+of the compiled assembly with Mono.Cecil and aborts if it does not equal `VERSION`, and it
+hashes the staged DLLs against the freshly built one before publishing.
 
-### Install
+To cut a release: edit `VERSION`, update `CHANGELOG.md`, commit, run `.\release.ps1`.
+
+---
+
+## Configuration layout
+
+| File | Contents | Committed? |
+|------|----------|-----------|
+| `VERSION` | just the version, e.g. `1.0.6` | yes |
+| `release.config.json` | namespace, Nexus mod/file IDs, pinned tool tag | yes |
+| `thunderstore.toml` | publish routing (repository + community) | yes |
+| `.env` | `TCLI_AUTH_TOKEN`, `NEXUSMODS_API_KEY` | **no - gitignored** |
+
+`release.ps1` loads `.env` itself, so no shell setup is needed. It prints only the *names* of
+the variables it loaded, never the values.
+
+### Verify `.env` stays out of git
+
+```bash
+git check-ignore -v .env        # should print the matching .gitignore rule
+git log --all -- .env           # should print nothing
+```
+
+Both currently pass. If you ever rotate tokens, only `.env` changes.
+
+---
+
+## What the pipeline does
+
+1. Load `.env`, validate both tokens are present
+2. Read and validate `VERSION` (must be `MAJOR.MINOR.PATCH`)
+3. Preflight: clean git tree, version is greater than the published Thunderstore latest,
+   required tooling on PATH
+4. `dotnet build -c Release`
+5. **Verify** the built DLL's `[BepInPlugin]` version equals `VERSION`
+6. Run both packaging scripts
+7. **Verify** staged DLLs hash-match the build and `manifest.json` agrees
+8. Publish to Thunderstore (`tcli publish --file`)
+9. Upload a new version to Nexus
+
+Steps 8 and 9 are the only irreversible ones; `-DryRun` stops after 7.
+
+Flags: `-DryRun`, `-SkipThunderstore`, `-SkipNexus` (useful if one platform succeeded and the
+other failed), `-AllowDirtyTree`.
+
+---
+
+## Thunderstore
+
+Fully automatable. Uses the official CLI:
 
 ```bash
 dotnet tool install -g tcli
 ```
 
-The `dotnet tool` build covers package building and publishing, which is all this project
-needs. (The standalone release additionally does mod installation/profile management.)
+Token comes from your Thunderstore **Team page → Service Accounts → Add Service Account**.
+Store it in `.env` as `TCLI_AUTH_TOKEN`.
 
-### Publishing
+`release.ps1` publishes the prebuilt zip produced by `package_thunderstore.bat`, so the zip's
+own `manifest.json` remains the source of truth for description and dependencies.
+`thunderstore.toml` deliberately does **not** duplicate those — it only says where to publish.
 
-`tcli` can publish an already-built zip, which fits this repo well since
-`package_thunderstore.bat` already produces a correctly structured archive:
-
-```bash
-tcli publish --file dist/SlowSailingBagpipes-Thunderstore-v1.0.6.zip
-```
-
-with `TCLI_AUTH_TOKEN` set in the environment. Configuration (namespace/team, package name,
-communities, dependencies) lives in a `thunderstore.toml` at the repo root.
-
-### GitHub Actions
-
-Either call `tcli` directly, or use the community action
-[`dhkatz/thunderstore-publish`](https://github.com/dhkatz/thunderstore-publish), which accepts
-a prebuilt zip via its `file` input and takes the token as `token` (passed through to
-`TCLI_AUTH_TOKEN` internally). Required inputs: `communities`, `namespace`, `name`, `version`,
-`description`, `token`.
+Package: `Therunner/SlowSailingBagpipes` in the `valheim` community.
 
 ---
 
-## Nexus Mods — partially automatable
+## Nexus Mods
 
-Nexus opened its **Upload API** to public beta on 2026-03-17. There is an official GitHub
-Action: [`Nexus-Mods/upload-action`](https://github.com/Nexus-Mods/upload-action), built on the
-Nexus v3 API.
+Partially automatable, with a real constraint.
 
-### One-time setup
+The Upload API entered open beta on 2026-03-17. There is no official CLI, and the upload is a
+multipart presigned-URL flow (create multipart upload → upload parts → complete → finalise →
+poll). Rather than reimplement that, `release.ps1` runs Nexus's own published GitHub Action
+locally via `node`: the action is driven entirely by `INPUT_*` environment variables, so it
+works outside GitHub Actions. It is cloned at the tag pinned in `release.config.json`
+(`uploadActionTag`) into `.release-tools/` and cached.
 
-1. Generate a personal API key from **API key settings** on your Nexus account.
-2. Store it as a secret, e.g. `NEXUSMODS_API_KEY`.
-3. Create the mod page and upload the first file **manually through the website** — this step
-   cannot be automated.
-4. Note the `file_id` of the existing file; the action versions that file.
+### The constraint
 
-### Usage
+**The API can only add a new version to a file that already exists.** It cannot create a mod
+page or a new file entry. That is why `release.config.json` carries:
 
-```yaml
-- name: Upload to NexusMods
-  uses: Nexus-Mods/upload-action@<tag>
-  with:
-    api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-    file_id: <file_id>
-    filename: SlowSailingBagpipes-NexusMods-v1.0.6.zip
-    version: 1.0.6
-    category: main
+```json
+"modId":  3349,
+"fileId": 20599
 ```
 
-Optional inputs cover `display_name`, `description`, `changelog`, archive settings and mod
-manager configuration. The action outputs `version_id` for the newly uploaded version.
+- `modId` 3349 → https://www.nexusmods.com/valheim/mods/3349
+- `fileId` 20599 → the current primary MAIN file
 
-### Caveats worth knowing before relying on this
+If you ever start a *new* mod, the page and its first file must be created through the website
+once; everything after that automates.
 
-- **Update-only.** The action explicitly cannot create new mods. Initial publication of any
-  *future* mod still needs the web UI once.
-- **Beta surface.** Nexus also exposes a GraphQL API, but their own documentation warns that it
-  is still in development and that "existing features may change or disappear without warning."
-  Pin the action to a tag rather than tracking `main`, and expect to revisit this.
+Requires Node 20+ (24 is what this was tested against) and `NEXUSMODS_API_KEY` in `.env`.
+
+### Stability caveat
+
+This is a beta API. The action tag is pinned on purpose — bump it deliberately, not
+automatically. Nexus's GraphQL API carries an explicit warning that existing features "may
+change or disappear without warning."
 
 ---
 
-## Recommended end state
+## If a release half-fails
 
+The two publishes are independent and happen in order. If Thunderstore succeeds and Nexus
+fails, **do not re-run the whole script** — Thunderstore will reject the duplicate version.
+Instead:
+
+```powershell
+.\release.ps1 -SkipThunderstore
 ```
-VERSION file  ──►  build  ──►  package_*.bat  ──►  ┬─ tcli publish            (Thunderstore)
-                                                    └─ Nexus-Mods/upload-action (Nexus)
-```
 
-Sequence for a release:
-
-1. Bump the single `VERSION` file.
-2. Build + package (existing `.bat` scripts, with the version injected rather than hardcoded).
-3. Publish to Thunderstore via `tcli`.
-4. Upload to Nexus via the upload action.
-5. Tag the git commit to match.
-
-Steps 2–4 are safely automatable today. Step 1 needs the single-source refactor above. The only
-genuinely manual, one-time-per-mod step is creating the Nexus mod page.
+and vice versa with `-SkipNexus`.
 
 ---
 
 ## Sources
 
 - [thunderstore-io/thunderstore-cli](https://github.com/thunderstore-io/thunderstore-cli)
-- [dhkatz/thunderstore-publish action](https://github.com/dhkatz/thunderstore-publish)
 - [Getting a Thunderstore API token](https://github.com/Kesomannen/gale/wiki/Getting-a-Thunderstore-API-token)
 - [Nexus-Mods/upload-action](https://github.com/Nexus-Mods/upload-action)
 - [Nexus Mods: Upload API Open Beta Now Live](https://www.nexusmods.com/news/15454)

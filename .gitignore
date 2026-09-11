@@ -187,3 +187,7 @@ PIPELINE_COMPLETE.md
 # Audio staged into dist/ by the packaging scripts - the source of truth is
 # BagPipesTracks/ at the repo root, and these copies are regenerated on every build.
 dist/**/BagPipesTracks/
+
+# Release tooling working directories (cloned/pinned third-party tools, tcli build output)
+.release-tools/
+dist/tcli/

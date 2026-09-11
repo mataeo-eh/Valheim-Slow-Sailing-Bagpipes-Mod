@@ -12,7 +12,14 @@ echo Thunderstore Package Builder
 echo ========================================
 echo.
 
-set "VERSION=1.0.6"
+REM Version comes from the repo-root VERSION file - never hardcode it here.
+set "VERSION="
+set /p VERSION=<"%~dp0VERSION"
+if not defined VERSION (
+    echo ERROR: could not read version from "%~dp0VERSION"
+    pause
+    exit /b 1
+)
 set "PROJECT_ROOT=%~dp0"
 set "BUILD_DLL=%PROJECT_ROOT%src\SlowSailingBagpipes\bin\Release\net472\SailingBagpipes.dll"
 set "AUDIO_SOURCE=%PROJECT_ROOT%BagPipesTracks"
@@ -43,6 +50,15 @@ if not exist "%PLUGIN_DIR%" mkdir "%PLUGIN_DIR%"
 echo [2/7] Verifying Thunderstore metadata...
 if not exist "%DIST_DIR%\manifest.json" (
     echo ERROR: manifest.json is missing from %DIST_DIR%
+    pause
+    exit /b 1
+)
+
+REM Stamp the manifest version from the VERSION file, so manifest.json can never drift
+REM from the version compiled into the DLL.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_ROOT%tools\Set-ManifestVersion.ps1" -ManifestPath "%DIST_DIR%\manifest.json" -Version "%VERSION%"
+if errorlevel 1 (
+    echo ERROR: Failed to stamp manifest.json version
     pause
     exit /b 1
 )

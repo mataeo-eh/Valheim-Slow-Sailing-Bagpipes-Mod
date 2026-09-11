@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "Non-secret release configuration for release.ps1.",
+    "Secrets (TCLI_AUTH_TOKEN, NEXUSMODS_API_KEY) live in .env, which is gitignored.",
+    "The version is NOT stored here - the repo-root VERSION file is the single source of truth."
+  ],
+
+  "thunderstore": {
+    "namespace": "Therunner",
+    "packageName": "SlowSailingBagpipes",
+    "community": "valheim"
+  },
+
+  "nexus": {
+    "gameDomain": "valheim",
+    "_modIdComment": "Mod page: https://www.nexusmods.com/valheim/mods/3349",
+    "modId": 3349,
+    "_fileIdComment": "The existing file that new versions are attached to. The Nexus Upload API can only add a version to an existing file - it cannot create a mod page or a new file entry.",
+    "fileId": 20599,
+    "category": "main",
+    "archiveExistingVersion": true,
+    "updateModVersion": true,
+    "primaryModManagerDownload": true,
+    "allowModManagerDownload": true,
+    "_uploadActionComment": "Pinned tag of Nexus-Mods/upload-action. This is still a beta API surface - bump deliberately, not automatically.",
+    "uploadActionRepo": "https://github.com/Nexus-Mods/upload-action.git",
+    "uploadActionTag": "v1.0.0-beta.10"
+  }
+}

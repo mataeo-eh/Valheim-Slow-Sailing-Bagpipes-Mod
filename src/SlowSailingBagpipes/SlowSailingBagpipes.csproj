@@ -9,6 +9,50 @@
     <RootNamespace>SailingBagpipes</RootNamespace>
     <AssemblyName>SailingBagpipes</AssemblyName>
   </PropertyGroup>
+
+  <!--
+    Single source of truth for the mod version.
+
+    The repo-root VERSION file is the ONLY place the version is authored. It is read here at
+    build time and compiled into the assembly via a generated source file, so the version that
+    BepInEx reports can never drift from the version the release tooling publishes.
+    Everything else downstream (Thunderstore manifest, package filenames, Nexus upload) also
+    reads VERSION, via release.ps1.
+  -->
+  <PropertyGroup>
+    <ModVersionFile>$(MSBuildProjectDirectory)\..\..\VERSION</ModVersionFile>
+    <ModVersion>$([System.IO.File]::ReadAllText($(ModVersionFile)).Trim())</ModVersion>
+    <!-- Mirror it into the standard assembly version fields as well. -->
+    <Version>$(ModVersion)</Version>
+    <AssemblyVersion>$(ModVersion).0</AssemblyVersion>
+    <FileVersion>$(ModVersion).0</FileVersion>
+  </PropertyGroup>
+
+  <!--
+    Emits a tiny source file holding the version as a compile-time constant, which is what the
+    [BepInPlugin] attribute needs.
+
+    The output path is computed INSIDE the target on purpose: $(IntermediateOutputPath) is not
+    defined yet while top-level PropertyGroups are evaluated, so computing it above would drop
+    the generated file into the source directory, where the SDK's default **/*.cs glob would
+    also pick it up and compile it twice.
+  -->
+  <Target Name="GenerateModVersionSource" BeforeTargets="BeforeCompile;CoreCompile">
+    <PropertyGroup>
+      <GeneratedVersionSource>$(IntermediateOutputPath)GeneratedModVersion.cs</GeneratedVersionSource>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <WriteLinesToFile
+      File="$(GeneratedVersionSource)"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true"
+      Lines="// &lt;auto-generated /&gt; Generated from the repo-root VERSION file. Do not edit.;namespace SailingBagpipes%3B;internal static class GeneratedModVersion;{;    public const string Value = &quot;$(ModVersion)&quot;%3B;}" />
+    <ItemGroup>
+      <Compile Include="$(GeneratedVersionSource)" />
+      <FileWrites Include="$(GeneratedVersionSource)" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="BepInEx.Core" Version="5.4.19" />
     <PackageReference Include="JotunnLib" Version="2.*" />

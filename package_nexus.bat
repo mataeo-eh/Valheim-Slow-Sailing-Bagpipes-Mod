@@ -12,7 +12,14 @@ echo Nexus Mods Package Builder
 echo ========================================
 echo.
 
-set "VERSION=1.0.6"
+REM Version comes from the repo-root VERSION file - never hardcode it here.
+set "VERSION="
+set /p VERSION=<"%~dp0VERSION"
+if not defined VERSION (
+    echo ERROR: could not read version from "%~dp0VERSION"
+    pause
+    exit /b 1
+)
 set "PROJECT_ROOT=%~dp0"
 set "BUILD_DLL=%PROJECT_ROOT%src\SlowSailingBagpipes\bin\Release\net472\SailingBagpipes.dll"
 set "AUDIO_SOURCE=%PROJECT_ROOT%BagPipesTracks"
