@@ -45,7 +45,7 @@ Before creating packages, verify everything is ready:
 ### Testing
 
 - [ ] Mod loads in Valheim without errors
-- [ ] Rowing triggers music after 3 seconds
+- [ ] Rowing triggers music after about 0.1 seconds of eligible rowing
 - [ ] Forward AND backward rowing both work
 - [ ] Music fades in (1.5s) and fades out (0.5s)
 - [ ] Grace period works (10 seconds)
@@ -62,7 +62,7 @@ Before creating packages, verify everything is ready:
 Edit `src/SlowSailingBagpipes/Plugin.cs`:
 
 ```csharp
-private const string PluginVersion = "1.0.0"; // Update this
+private const string PluginVersion = "1.0.5"; // Update this
 ```
 
 ### Step 2: Update Manifest (Thunderstore)
@@ -72,11 +72,11 @@ Edit `dist/thunderstore/manifest.json`:
 ```json
 {
   "name": "SlowSailingBagpipes",
-  "version_number": "1.0.0",  // Update this (must match PluginVersion)
+  "version_number": "1.0.5",  // Update this (must match PluginVersion)
   "website_url": "https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod",
   "description": "Play custom bagpipe music while rowing your Viking longship!",
   "dependencies": [
-    "denikson-BepInExPack_Valheim-5.4.2202"
+    "denikson-BepInExPack_Valheim-5.4.2350"
   ]
 }
 ```

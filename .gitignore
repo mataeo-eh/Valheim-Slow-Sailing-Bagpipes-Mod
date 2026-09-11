@@ -183,3 +183,7 @@ dist/**/*.zip
 # Documentation & Project Management (Keep but ignore if they contain sensitive info)
 # ------------------------------------------------------------------------------
 PIPELINE_COMPLETE.md
+
+# Audio staged into dist/ by the packaging scripts - the source of truth is
+# BagPipesTracks/ at the repo root, and these copies are regenerated on every build.
+dist/**/BagPipesTracks/

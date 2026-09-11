@@ -20,7 +20,7 @@ public class Plugin : BaseUnityPlugin
 {
     private const string PluginGuid = "eh.mataeo.valheim.slowsailingbagpipes";
     private const string PluginName = "SlowSailingBagpipes";
-    private const string PluginVersion = "1.0.5";
+    private const string PluginVersion = "1.0.6";
 
     private const float PaddleThresholdSeconds = 0.1f;
     private const float ResumeGraceSeconds = 10f;
@@ -56,10 +56,14 @@ public class Plugin : BaseUnityPlugin
     private bool _isPausedForGrace;
     private float _paddleTimer;
     private float _resumeUntil;
-    private float _storedMusicVolume = 1f;
     private bool _musicManSuppressed;
-    private bool _musicManWasPlaying;
     private bool _audioSourceConfiguredFromMusicMan;
+
+    // Instance ID of the MusicMan our audio source was configured from. Valheim rebuilds
+    // MusicMan across scene loads (main menu <-> world), so the cached mixer group and any
+    // suppression we applied belong to a destroyed object once this changes. Tracking the
+    // ID lets us detect that and re-apply both.
+    private int _syncedMusicManId;
     private int _lastControlledShipId = -1;
     private string _lastControlledShipName = "None";
     private Ship.Speed? _lastSpeedSetting;
@@ -121,6 +125,7 @@ public class Plugin : BaseUnityPlugin
         }
 
         SyncAudioSourceWithMusicMan();
+        ReassertMusicSuppression();
 
         var player = Player.m_localPlayer;
         if (player == null)
@@ -255,7 +260,22 @@ public class Plugin : BaseUnityPlugin
 
     private void SyncAudioSourceWithMusicMan()
     {
-        if (_audioSource == null || _audioSourceConfiguredFromMusicMan)
+        if (_audioSource == null)
+        {
+            return;
+        }
+
+        var musicMan = MusicMan.instance;
+        if (musicMan == null)
+        {
+            return;
+        }
+
+        // Re-sync whenever Valheim swaps in a new MusicMan (scene transitions), otherwise the
+        // mixer group we copied last time points at a destroyed object and playback is routed
+        // to the wrong bus - or to nothing at all.
+        var musicManId = musicMan.GetInstanceID();
+        if (_audioSourceConfiguredFromMusicMan && musicManId == _syncedMusicManId)
         {
             return;
         }
@@ -282,6 +302,7 @@ public class Plugin : BaseUnityPlugin
         _audioSource.spread = 0f;
 
         _audioSourceConfiguredFromMusicMan = true;
+        _syncedMusicManId = musicManId;
         LogInfo("Audio source synced to Valheim music mixer settings.");
     }
 
@@ -699,40 +720,57 @@ public class Plugin : BaseUnityPlugin
         onComplete?.Invoke();
     }
 
+    /// <summary>
+    /// Silences (or restores) Valheim's own music while the bagpipes play.
+    /// </summary>
+    /// <param name="shouldSuppress">True to silence game music, false to restore it.</param>
+    /// <remarks>
+    /// Suppression works by muting MusicMan's AudioSource rather than by zeroing its volume
+    /// or pausing it. This is deliberate: <c>MusicMan.UpdateMusic</c> rewrites
+    /// <c>m_musicSource.volume</c> every frame and calls <c>Play()</c> whenever it switches
+    /// tracks, so a volume of 0 is overwritten on the next frame and a Pause() is undone the
+    /// next time the music changes - in both cases game music would bleed over the bagpipes.
+    /// Nothing in Valheim's own code ever writes <c>AudioSource.mute</c>, which makes it a
+    /// channel the mod can own exclusively. Leaving the source playing (just muted) also keeps
+    /// MusicMan's internal state machine undisturbed, so restoring is a single flag flip.
+    /// Called by <see cref="PlayClip"/>, <see cref="ResumeBagpipes"/>, <see cref="StopBagpipes"/>,
+    /// <see cref="PauseBagpipesForGrace"/> and <see cref="ReassertMusicSuppression"/>.
+    /// </remarks>
     private void SetGameMusicSuppressed(bool shouldSuppress)
     {
         var source = GetMusicManAudioSource();
         if (source == null)
         {
-            return;
-        }
-
-        if (shouldSuppress && !_musicManSuppressed)
-        {
-            _storedMusicVolume = source.volume;
-            _musicManWasPlaying = source.isPlaying;
-            source.volume = 0f;
-
-            if (_musicManWasPlaying)
-            {
-                source.Pause();
-            }
-
-            _musicManSuppressed = true;
-            return;
-        }
-
-        if (!shouldSuppress && _musicManSuppressed)
-        {
-            source.volume = _storedMusicVolume;
-
-            if (_musicManWasPlaying)
-            {
-                source.UnPause();
-            }
-
+            // MusicMan is gone (e.g. returning to the main menu). Drop the flag so a future
+            // MusicMan does not inherit a stale "already suppressed" state.
             _musicManSuppressed = false;
-            _musicManWasPlaying = false;
+            return;
+        }
+
+        source.mute = shouldSuppress;
+        _musicManSuppressed = shouldSuppress;
+    }
+
+    /// <summary>
+    /// Re-applies music suppression if Valheim replaced the MusicMan instance underneath us.
+    /// </summary>
+    /// <remarks>
+    /// MusicMan is destroyed and recreated on scene transitions. Without this, the mute would
+    /// have been applied to a destroyed AudioSource and the new one would play game music over
+    /// the bagpipes. Called once per frame from <see cref="Update"/>.
+    /// Depends on <see cref="GetMusicManAudioSource"/>.
+    /// </remarks>
+    private void ReassertMusicSuppression()
+    {
+        if (!_musicManSuppressed)
+        {
+            return;
+        }
+
+        var source = GetMusicManAudioSource();
+        if (source != null && !source.mute)
+        {
+            source.mute = true;
         }
     }
 

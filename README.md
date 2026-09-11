@@ -3,8 +3,8 @@
 > Play custom bagpipe music while rowing your Viking longship across the seas of Valheim!
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod/releases)
-[![BepInEx](https://img.shields.io/badge/BepInEx-5.4.2202-green.svg)](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
+[![Version](https://img.shields.io/badge/version-1.0.6-blue.svg)](https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod/releases)
+[![BepInEx](https://img.shields.io/badge/BepInEx-5.4.2350-green.svg)](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
 
 ## Description
 
@@ -14,14 +14,14 @@ Perfect for those peaceful moments when you're paddling along the coastline or c
 
 ## Features
 
-- **Automatic Playback**: Music starts automatically after 3 seconds of rowing
+- **Automatic Playback**: Music starts after about 0.1 seconds of eligible rowing, then fades in over 1.5 seconds
 - **Bidirectional Support**: Works with both forward and backward rowing
 - **Custom Music**: Add your own MP3, OGG, or WAV files
 - **Random Selection**: Multiple tracks? The mod picks one randomly each time
 - **Smooth Transitions**:
   - 1.5-second fade-in when music starts
   - 0.5-second fade-out when you stop rowing
-- **Grace Period**: Stop briefly and resume within 10 seconds - music continues instantly
+- **Grace Period**: Stop briefly and resume within 10 seconds - music resumes without re-waiting through the trigger threshold
 - **Game Music Integration**: Automatically mutes Valheim's soundtrack during playback
 - **Fully Configurable**: Adjust volume, music folder, and enable/disable the mod
 
@@ -47,10 +47,10 @@ For complete installation guides for all methods, see **[INSTALLATION.md](INSTAL
 
 1. **Get in a boat** (Raft, Karve, or Longship)
 2. **Set speed to SLOW** - Press W until you see the rowing animation
-3. **Row for 3 seconds** - The music will automatically fade in
+3. **Row briefly** - After about 0.1 seconds of eligible rowing, the music starts fading in
 4. **Enjoy your voyage!**
 
-When you stop rowing, the music fades out. If you start rowing again within 10 seconds, it resumes instantly without delay!
+When you stop rowing, the music fades out. If you start rowing again within 10 seconds, it resumes without waiting through the trigger threshold again.
 
 ## Customizing Your Music
 
@@ -111,13 +111,13 @@ Volume = 0.85               # Music volume (0.0 to 1.0)
 TrackDirectory = BagPipesTracks  # Audio folder path (relative or absolute)
 ```
 
-Edit the file and restart Valheim for changes to take effect.
+`Volume` and `TrackDirectory` changes apply immediately while the mod is running. If you add or replace audio files inside the same folder, restart Valheim to force the mod to rescan them.
 
 ## Technical Details
 
 | Setting | Value |
 |---------|-------|
-| **Trigger delay** | 3 seconds of continuous rowing |
+| **Trigger delay** | 0.1 seconds of continuous eligible rowing |
 | **Fade-in duration** | 1.5 seconds |
 | **Fade-out duration** | 0.5 seconds |
 | **Grace period** | 10 seconds |
@@ -133,7 +133,7 @@ Edit the file and restart Valheim for changes to take effect.
 - Audio files exist in `BagPipesTracks/` folder
 - Files are **not 0 bytes** (delete the placeholder!)
 - You're rowing at **SLOW speed** (not half or full speed)
-- You waited the full **3 seconds**
+- You kept rowing for at least **0.1 seconds**
 - Check the log: `BepInEx/LogOutput.log` should show `Loaded X bagpipe track(s)`
 
 ### Mod doesn't load
@@ -142,7 +142,7 @@ Edit the file and restart Valheim for changes to take effect.
 - BepInEx is installed correctly
 - `SailingBagpipes.dll` is in `BepInEx/plugins/`
 - Check `BepInEx/LogOutput.log` for errors
-- Make sure you're using BepInEx 5.4.2202 or later
+- Make sure you're using BepInEx 5.4.2350 or later
 
 ### Music is too loud/quiet
 
@@ -153,7 +153,7 @@ For more troubleshooting, see **[INSTALLATION.md](INSTALLATION.md#troubleshootin
 ## Compatibility
 
 - **Valheim Version**: Latest (tested on current build)
-- **BepInEx**: 5.4.2202 or later
+- **BepInEx**: 5.4.2350 or later
 - **Multiplayer**: ✅ Compatible (client-side, each player independent)
 - **Other Mods**: ✅ Should be compatible with most mods
 
@@ -226,18 +226,18 @@ Just give credit and include the license!
 
 ## Changelog
 
-### v1.0.0 (2025-12-06)
+### v1.0.5 (2026-05-14)
 
-**Initial public release!**
+**Current release highlights**
 
 - Automatic bagpipe music playback while rowing
 - Support for forward AND backward rowing
-- 3-second trigger delay for responsive playback
+- 0.1-second trigger delay for near-immediate playback
 - Smooth fade transitions (1.5s in, 0.5s out)
 - 10-second grace period for seamless resuming
 - Custom music support (MP3, OGG, WAV)
 - Random track selection from multiple files
-- Configurable volume and track directory
+- Live-updating `Volume` and `TrackDirectory` config
 - Rolling file logger for debugging
 - Complete documentation and installation guides
 

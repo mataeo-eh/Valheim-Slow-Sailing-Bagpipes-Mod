@@ -4,9 +4,9 @@
 
 This document provides a complete development and testing pipeline for the Valheim Slow Sailing Bagpipes mod. The mod plays custom bagpipe music when the player is rowing forward OR backward at slow speed.
 
-**Status:** Version 1.0.0 - Ready for public release
+**Status:** Version 1.0.6 - Current release
 
-**Last Updated:** 2025-12-06
+**Last Updated:** 2026-05-14
 
 ---
 
@@ -344,6 +344,8 @@ TrackDirectory = BagPipesTracks
 TrackDirectory = C:\MyValheimMusic\Bagpipes
 ```
 
+`Volume` and `TrackDirectory` changes are applied live while the mod is running. If you add or replace files inside the same directory, restart Valheim or change `TrackDirectory` to force a rescan.
+
 ---
 
 ## Testing
@@ -369,7 +371,7 @@ Before testing in-game:
    ```
 3. **Look for these messages:**
    ```
-   [Info: BepInEx] Loading [SlowSailingBagpipes 0.1.0]
+   [Info: BepInEx] Loading [SlowSailingBagpipes 1.0.5]
    [Info: SlowSailingBagpipes] Loaded X bagpipe track(s) from [path]
    ```
 
@@ -387,19 +389,19 @@ Before testing in-game:
 2. **Set speed to SLOW** (rowing speed)
    - Press W (forward) until at slowest speed setting
    - You should see the rowing animation
-3. **Row for 3 seconds**
-   - Timer requirement: 3 seconds of continuous rowing
+3. **Row briefly**
+   - Timer requirement: 0.1 seconds of continuous eligible rowing
 4. **Expected behavior:**
-   - After 3 seconds: Bagpipe music fades in (1.5 second fade)
+   - After about 0.1 seconds: Bagpipe music starts fading in (1.5 second fade)
    - Game music (MusicMan) volume is reduced to 0
    - Bagpipe music loops seamlessly
 
 #### 4. Test Backward Rowing Trigger
 
 1. **While in boat, press S to row backward**
-2. **Row backward for 3 seconds**
+2. **Row backward briefly**
 3. **Expected behavior:**
-   - After 3 seconds: Bagpipe music fades in (same as forward)
+   - After about 0.1 seconds: Bagpipe music starts fading in (same as forward)
    - Music plays while rowing backward
    - Stop rowing backward - music fades out
 
@@ -416,7 +418,7 @@ Before testing in-game:
 
 1. **Resume rowing within 10 seconds** of stopping
 2. **Expected behavior:**
-   - Bagpipe music resumes **immediately** (no 3-second delay)
+   - Bagpipe music resumes **immediately** (no additional trigger delay)
    - This allows for brief pauses without restarting the timer
 
 #### 7. Test Random Selection (Multiple Files)
@@ -434,8 +436,8 @@ Before testing in-game:
 
 - [ ] Mod loads without errors
 - [ ] Audio files are detected (check log)
-- [ ] **Forward** rowing at slow speed for 3 seconds triggers music
-- [ ] **Backward** rowing at slow speed for 3 seconds triggers music
+- [ ] **Forward** rowing at slow speed for about 0.1 seconds triggers music
+- [ ] **Backward** rowing at slow speed for about 0.1 seconds triggers music
 - [ ] Music fades in smoothly (1.5 seconds)
 - [ ] Game music is muted during bagpipe playback
 - [ ] Stopping rowing fades out bagpipe music (0.5 seconds - quick)
@@ -526,7 +528,7 @@ Valheim/BepInEx/plugins/Logs/SlowSailingBagpipes-YYYY-MM-DD-HH-mm.log
 3. Audio file is not empty (0 bytes)
 4. Check mod log file for: "No bagpipe tracks found"
 5. Ensure you're rowing at **SLOW speed** (forward or backward)
-6. Wait full **3 seconds** of continuous rowing
+6. Keep rowing for at least **0.1 seconds**
 
 #### Music plays but game crashes
 
@@ -540,8 +542,8 @@ Valheim/BepInEx/plugins/Logs/SlowSailingBagpipes-YYYY-MM-DD-HH-mm.log
 
 **Checks:**
 1. This is likely a code bug - check the fade-out logic
-2. Verify `HandleNonPaddlingState()` is being called
-3. Check debug logs for "Exiting Paddle" message
+2. Verify `HandleNonRowingState()` is being called
+3. Check info logs for the "Eligible rowing ended" message
 
 #### Game music doesn't resume after bagpipes stop
 
@@ -549,9 +551,9 @@ Valheim/BepInEx/plugins/Logs/SlowSailingBagpipes-YYYY-MM-DD-HH-mm.log
 
 **Fix:**
 - This may be a Valheim API change
-- Check `ToggleMusicManMute()` implementation
+- Check `SetGameMusicSuppressed()` implementation
 - Verify `source.volume` is being restored
-- The current code uses `source.Stop()` and volume control
+- The current code uses `Pause()` / `UnPause()` plus volume restoration
 
 ---
 
@@ -593,10 +595,10 @@ For rapid testing:
 
 ### Version Control
 
-Current version: **0.1.0** (defined in `Plugin.cs`)
+Current version: **1.0.6** (defined in `Plugin.cs`)
 
 To update version:
-1. Edit `Plugin.cs`, line 22: `private const string PluginVersion = "0.1.0";`
+1. Edit `Plugin.cs`: `private const string PluginVersion = "1.0.5";`
 2. Rebuild
 3. Update changelog/README if needed
 
@@ -614,23 +616,24 @@ The mod runs `Update()` every frame and checks:
    - `Player.m_localPlayer` must be non-null
 
 2. **Is the player controlling a ship?**
-   - `player.GetControlledShip()` returns the Ship instance or null
+   - `ResolveControlledShip()` first checks `player.GetControlledShip()`
+   - Then falls back through doodad-controller and attached-ship resolution paths if needed
 
 3. **Is the ship at slow speed OR rowing backward?**
    - `ship.GetSpeedSetting() == Ship.Speed.Slow` (forward rowing)
    - OR `ship.GetSpeedSetting() == Ship.Speed.Back` (backward rowing)
    - Both trigger the music!
 
-4. **Has the player been rowing for 3 seconds?**
+4. **Has the player been rowing for 0.1 seconds?**
    - `_paddleTimer` increments while rowing
-   - Threshold: `PaddleThresholdSeconds = 3f`
+   - Threshold: `PaddleThresholdSeconds = 0.1f`
 
 5. **Start music:**
    - Select random track from `_trackPaths` list
    - Check if already cached in `_clipCache` dictionary
    - If not cached, start coroutine to load via `UnityWebRequestMultimedia`
    - Fade in volume from 0 to configured volume (1.5 seconds)
-   - Mute `MusicMan` (game's music system)
+   - Pause `MusicMan` if it was already playing and restore it later
 
 #### Stop Logic
 
@@ -638,12 +641,13 @@ When player stops rowing or exceeds slow speed:
 
 1. **Grant grace period:**
    - `_resumeUntil = Time.time + 10f`
-   - If rowing resumes within 10 seconds, music continues
+   - Fade out and pause the current clip if rowing may resume soon
+   - If rowing resumes within 10 seconds, the paused clip resumes
 
 2. **Fade out music:**
    - Fade volume from current to 0 (0.5 seconds - quick fade)
-   - Stop audio playback
-   - Restore `MusicMan` volume
+   - If grace expires, stop playback and clear the clip
+   - Restore `MusicMan` volume and playback state
 
 #### Audio Loading
 
@@ -673,6 +677,9 @@ Config changes detected via event:
 Config.SettingChanged += (_, args) => { ... }
 ```
 
+- `Volume` updates the active audio source immediately while playing
+- `TrackDirectory` stops playback, clears the clip cache, and reloads the track library immediately
+
 ### Performance Considerations
 
 - **Update() runs every frame:** Keep logic lightweight
@@ -693,22 +700,55 @@ Config.SettingChanged += (_, args) => { ... }
    - May need tuning if Valheim changes ship mechanics
    - Currently works with both forward and backward rowing
 
-4. **MusicMan API:** Current implementation uses basic volume control
-   - May need updates if Valheim changes music system
+4. **MusicMan API:** Vanilla music is suppressed by muting `MusicMan.m_musicSource`
+   - Volume-zeroing and pausing both fail: `MusicMan.UpdateMusic` rewrites the source's
+     volume every frame and calls `Play()` on track changes, which undoes a Pause
+   - `AudioSource.mute` is never written by Valheim itself, so the mod owns it exclusively
+   - May need updates if Valheim changes the music system
 
 ---
 
 ## API Changes and Fixes
 
-### Valheim API Compatibility (v0.1.0)
+### Valheim 1.0 / Unity 6 Compatibility (verified for mod v1.0.6)
 
-The mod was updated to work with current Valheim version. Key changes:
+Valheim 1.0 shipped 2026-09-09 and upgraded the game from Unity 2022.3 to **Unity 6
+(6000.0.75f1)**. Every API this mod binds to was re-verified against the shipped
+`assembly_valheim.dll` from that build:
+
+| API used by the mod | Status in Valheim 1.0 |
+|---------------------|------------------------|
+| `Ship.Speed` enum (`Stop=0, Back=1, Slow=2, Half=3, Full=4`) | Unchanged |
+| `Ship.GetSpeedSetting()` / `GetSpeed()` / `GetRudder()` | Unchanged |
+| `Ship.m_players` (private `List<Player>`, read by reflection) | Unchanged |
+| `Player.m_localPlayer` / `GetControlledShip()` / `GetDoodadController()` / `IsAttachedToShip()` | Unchanged |
+| `IDoodadController.GetControlledComponent()` | Unchanged |
+| `MusicMan.instance` / `m_musicSource` (private `AudioSource`) | Unchanged |
+| Unity `AudioSource`, `UnityWebRequestMultimedia.GetAudioClip`, `FindObjectsByType` | Present in Unity 6 |
+
+`Ship`'s **method** surface is identical to pre-1.0; only private sail-rendering fields
+changed (`m_sailCloth` moved from `UnityEngine.Cloth` to `MagicaCloth2.MagicaCloth`, and new
+`m_sailPosition` / furled-position transforms were added). The mod touches none of these.
+`Ship.IsSailUp()` still returns true only for `Half`/`Full`, confirming `Slow` and `Back`
+remain the rowing states the mod triggers on.
+
+All game assemblies still target the `Net_4_0` runtime, so the `net472` build target is
+still correct. A reference-resolution pass over the built DLL against the 1.0 install found
+**zero** unresolved type or member references.
+
+**The one real breakage was packaging, not code:** the Thunderstore manifest pinned
+`denikson-BepInExPack_Valheim-5.4.2202`, which predates Unity 6. Mod managers would install
+that pack and no plugin would load at all. Bumped to `5.4.2350` (released 2026-09-09).
+
+#### Earlier API migration (v1.0.5)
+
+Key changes from the pre-1.0.5 rewrite:
 
 | Old API (Broken) | New API (Working) | Notes |
 |------------------|-------------------|-------|
 | `player.m_shipControl == ShipControlls.ShipControlType.Paddle` | `player.GetControlledShip() != null && (ship.GetSpeedSetting() == Ship.Speed.Slow \|\| ship.GetSpeedSetting() == Ship.Speed.Back)` | Ship control detection - forward OR backward |
-| `musicMan.ManualStopMusic()` | `source.Stop()` | Music stopping |
-| `musicMan.ManualStartMusic()` | Volume restoration only | Music resuming |
+| `musicMan.ManualStopMusic()` | `SetGameMusicSuppressed(true)` | Mute vanilla music during bagpipe playback |
+| `musicMan.ManualStartMusic()` | `SetGameMusicSuppressed(false)` | Unmute vanilla music |
 
 **If Valheim updates break the mod:**
 
@@ -795,16 +835,16 @@ When ready to release:
 
 See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 
-### v1.0.0 (2025-12-06)
-- **Public release**
+### v1.0.5 (2026-05-14)
+- **Current release**
 - Forward AND backward rowing support (Ship.Speed.Slow OR Ship.Speed.Back)
-- 3-second trigger delay (reduced from 10s)
+- 0.1-second trigger delay for near-immediate playback
 - Separate fade durations: 1.5s fade-in, 0.5s fade-out
 - 10-second grace period
+- Live config reload for volume and track directory updates
 - Custom music support (MP3/OGG/WAV)
 - Random track selection
-- Configurable volume and track directory
-- Complete documentation for release
+- Complete documentation refreshed to match current behavior
 
 ### v0.1.0 (2025-12-05)
 - Initial development version

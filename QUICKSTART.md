@@ -55,8 +55,8 @@ Replace `BagPipesTracks\ghost_bagpipe_track.mp3` with real MP3 files:
 2. **Load a world**
 3. **Get in a boat**
 4. **Set speed to SLOW** (rowing speed - press W once or twice)
-5. **Row for 10 seconds**
-6. **Music should fade in!**
+5. **Row briefly**
+6. **After about 0.1 seconds, music should start fading in!**
 
 **To stop:**
 - Stop rowing → music fades out
@@ -101,7 +101,7 @@ Valheim\BepInEx\config\eh.mataeo.valheim.slowsailingbagpipes.cfg
 ### No music plays
 - Check audio files exist and are non-empty
 - Ensure you're at SLOW speed (rowing)
-- Wait full 10 seconds
+- Keep rowing for at least 0.1 seconds
 - Check log for "No bagpipe tracks found"
 
 ### Mod doesn't load

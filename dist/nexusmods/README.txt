@@ -2,9 +2,9 @@
 Slow Sailing Bagpipes - Valheim Mod
 ===========================================
 
-Version: 1.0.0
+Version: 1.0.6
 Author: mataeo-eh
-Date: 2025-12-06
+Date: 2026-05-14
 
 ===========================================
 DESCRIPTION
@@ -17,7 +17,7 @@ at slow speed (forward or backward) in any boat. Perfect for those
 long ocean voyages!
 
 Features:
-- Automatic music after 3 seconds of rowing
+- Automatic music after about 0.1 seconds of eligible rowing
 - Works with forward AND backward rowing
 - Custom MP3/OGG/WAV support
 - Random track selection
@@ -29,8 +29,8 @@ REQUIREMENTS
 ===========================================
 
 REQUIRED:
-- Valheim (latest version)
-- BepInEx 5.4.2202 or later
+- Valheim 1.0 or later (verified against the 1.0 / Unity 6 build)
+- BepInEx 5.4.2350 or later
 
 BepInEx Download:
 https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/
@@ -80,10 +80,10 @@ HOW TO USE
 
 1. Get in a boat (Raft, Karve, or Longship)
 2. Set speed to SLOW (press W until rowing animation)
-3. Row for 3 seconds
-4. Music will fade in!
+3. Row briefly
+4. Music will start fading in after about 0.1 seconds
 5. Stop rowing - music fades out
-6. Resume within 10 seconds - music continues instantly!
+6. Resume within 10 seconds - music resumes without waiting through the trigger threshold again!
 
 ===========================================
 CUSTOMIZING MUSIC
@@ -134,7 +134,7 @@ TROUBLESHOOTING
 No music plays:
 - Check BagPipesTracks folder has MP3/OGG/WAV files (not 0 bytes!)
 - Ensure you're rowing at SLOW speed (not half/full)
-- Wait full 3 seconds of continuous rowing
+- Keep rowing for at least 0.1 seconds
 - Check log: BepInEx\LogOutput.log
 
 Mod doesn't load:
@@ -160,7 +160,7 @@ If you experience issues, report them on Nexus Mods or GitHub.
 TECHNICAL DETAILS
 ===========================================
 
-Trigger delay: 3 seconds
+Trigger delay: 0.1 seconds
 Fade-in: 1.5 seconds
 Fade-out: 0.5 seconds
 Grace period: 10 seconds
@@ -170,10 +170,20 @@ Detection: Forward OR backward rowing at slow speed
 CHANGELOG
 ===========================================
 
-v1.0.0 (2025-12-06)
-- Initial release
+v1.0.6 (2026-09-11) - VALHEIM 1.0 UPDATE
+- Current release
+- Updated for Valheim 1.0 (Unity 6)
+- REQUIRES BepInExPack_Valheim 5.4.2350 or later. Older BepInEx packs cannot
+  load any plugin on Unity 6 - update BepInEx before reporting problems.
+- Fixed vanilla music bleeding over the bagpipes on track changes
+- Fixed bagpipes going silent or playing on the wrong audio bus after
+  returning from the main menu
+- Rebuilt against the Valheim 1.0 game assemblies
+
+v1.0.5 (2026-05-14)
 - Forward and backward rowing support
-- 3-second trigger delay
+- 0.1-second trigger delay
+- Live config reload for volume and track directory updates
 - Custom music support (MP3/OGG/WAV)
 - Random track selection
 - Configurable volume and directory

@@ -12,7 +12,7 @@ echo Nexus Mods Package Builder
 echo ========================================
 echo.
 
-set "VERSION=1.0.5"
+set "VERSION=1.0.6"
 set "PROJECT_ROOT=%~dp0"
 set "BUILD_DLL=%PROJECT_ROOT%src\SlowSailingBagpipes\bin\Release\net472\SailingBagpipes.dll"
 set "AUDIO_SOURCE=%PROJECT_ROOT%BagPipesTracks"

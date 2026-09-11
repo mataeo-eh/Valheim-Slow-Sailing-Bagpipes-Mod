@@ -20,7 +20,7 @@ This guide covers all installation methods for the Slow Sailing Bagpipes Valheim
 ### Required
 
 - **Valheim** (latest version from Steam)
-- **BepInEx** 5.4.2202 or later
+- **BepInEx** 5.4.2350 or later
 
 BepInEx will be installed automatically by mod managers, or you can install it manually:
 - **Thunderstore**: https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/
@@ -210,7 +210,7 @@ When you launch Valheim with BepInEx, a console window appears showing mod loadi
 
 **Look for these messages**:
 ```
-[Info   : BepInEx] Loading [SlowSailingBagpipes 1.0.0]
+[Info   : BepInEx] Loading [SlowSailingBagpipes 1.0.5]
 [Info   : SlowSailingBagpipes] Loaded X bagpipe track(s) from [path]
 ```
 
@@ -234,8 +234,8 @@ If the console closes too quickly:
 2. Craft or spawn a boat (Raft is easiest)
 3. Get in the boat
 4. Set speed to **SLOW** (press W until rowing animation)
-5. Row for **3 seconds**
-6. Music should fade in!
+5. Row briefly for about **0.1 seconds**
+6. Music should start fading in!
 
 ---
 
@@ -300,7 +300,7 @@ Result: 3 tracks loaded, random selection working!
 - File extensions: `.mp3`, `.ogg`, or `.wav`
 - Log shows: `Loaded X bagpipe track(s)` (X > 0)
 - You're rowing at **SLOW speed** (not half/full)
-- Waited full **3 seconds** of continuous rowing
+- Kept rowing for at least **0.1 seconds**
 
 **Common fixes**:
 - Delete placeholder file
@@ -329,7 +329,7 @@ TrackDirectory = BagPipesTracks  # Check path is correct
 - Open config file
 - Verify `Enabled = true`
 - Check `TrackDirectory` path
-- Save and restart
+- Save; `TrackDirectory` reloads immediately
 
 ### BepInEx console closes immediately
 
@@ -344,7 +344,7 @@ TrackDirectory = BagPipesTracks  # Check path is correct
 **Adjust volume**:
 1. Edit config: `eh.mataeo.valheim.slowsailingbagpipes.cfg`
 2. Change: `Volume = 0.85` (0.0 to 1.0)
-3. Save and restart
+3. Save; the new volume applies immediately
 
 ---
 
