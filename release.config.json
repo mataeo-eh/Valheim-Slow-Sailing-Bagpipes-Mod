@@ -13,15 +13,29 @@
 
   "nexus": {
     "gameDomain": "valheim",
-    "_modIdComment": "Mod page: https://www.nexusmods.com/valheim/mods/3349",
-    "modId": 3349,
-    "_fileIdComment": "The existing file that new versions are attached to. The Nexus Upload API can only add a version to an existing file - it cannot create a mod page or a new file entry.",
-    "fileId": 20599,
+
+    "_idNamespaceWarning": [
+      "CRITICAL: Nexus v1 and v3 use DIFFERENT id namespaces, and mixing them fails with a",
+      "misleading 403 'You do not have permission to upload files to this mod'.",
+      "The Upload API is v3, so the ids below MUST be v3 ids - not the ones the v1 API returns",
+      "and not the number in the mod page URL."
+    ],
+
+    "_pageModIdComment": "Game-scoped id - the number in the mod page URL, https://www.nexusmods.com/valheim/mods/3349. Used only for building links, never for API calls.",
+    "pageModId": 3349,
+
+    "_modIdComment": "v3 internal mod id, used for the changelog endpoint. Rediscover with: GET https://api.nexusmods.com/v3/games/valheim/mods/3349 -> data.id",
+    "modId": "15749645077781",
+
+    "_fileIdComment": "v3 mod_file id that new versions are attached to. Rediscover with: GET https://api.nexusmods.com/v3/mods/15749645077781/files -> data.mod_files[].id. NOTE: the v1 file ids (20598/20599) are versions of this single v3 mod_file, not separate files.",
+    "fileId": "7418183",
+
     "category": "main",
     "archiveExistingVersion": true,
     "updateModVersion": true,
     "primaryModManagerDownload": true,
     "allowModManagerDownload": true,
+
     "_uploadActionComment": "Pinned tag of Nexus-Mods/upload-action. This is still a beta API surface - bump deliberately, not automatically.",
     "uploadActionRepo": "https://github.com/Nexus-Mods/upload-action.git",
     "uploadActionTag": "v1.0.0-beta.10"

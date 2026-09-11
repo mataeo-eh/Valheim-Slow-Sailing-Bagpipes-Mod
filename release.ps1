@@ -387,9 +387,21 @@ if ($SkipNexus) {
     if ($changelogText) { $env:INPUT_CHANGELOG = $changelogText }
 
     try {
-        & node $actionMain
-        if ($LASTEXITCODE -ne 0) { Fail "Nexus upload action failed with exit code $LASTEXITCODE" }
-        Write-Ok "Uploaded new version to Nexus mod $($config.nexus.modId), file $($config.nexus.fileId)"
+        # SECURITY: @actions/core writes "::debug::" lines to stdout unconditionally when the
+        # action runs outside GitHub Actions, and those lines dump the full request headers -
+        # including the apikey. Filter them out so the key never reaches the console, a log
+        # file, or CI output. Everything else from the action is passed through unchanged.
+        $apiKey = $env:NEXUSMODS_API_KEY
+        & node $actionMain 2>&1 | ForEach-Object {
+            $line = $_.ToString()
+            if ($line -like '*::debug::*') { return }
+            # Belt and braces: redact the key if it ever appears on a non-debug line.
+            if ($apiKey -and $line.Contains($apiKey)) { $line = $line.Replace($apiKey, '***REDACTED***') }
+            Write-Host $line
+        }
+        $nodeExit = $LASTEXITCODE
+        if ($nodeExit -ne 0) { Fail "Nexus upload action failed with exit code $nodeExit" }
+        Write-Ok "Uploaded new version to Nexus mod $($config.nexus.pageModId), v3 file $($config.nexus.fileId)"
     } finally {
         # Don't leave the API key sitting in the session environment.
         Remove-Item env:INPUT_API_KEY -ErrorAction SilentlyContinue
@@ -401,7 +413,7 @@ Write-Host "=====================================================" -ForegroundCo
 Write-Host " Release $version complete" -ForegroundColor Green
 Write-Host "=====================================================" -ForegroundColor Green
 Write-Host "  Thunderstore: https://thunderstore.io/c/$($config.thunderstore.community)/p/$($config.thunderstore.namespace)/$($config.thunderstore.packageName)/"
-Write-Host "  Nexus:        https://www.nexusmods.com/$($config.nexus.gameDomain)/mods/$($config.nexus.modId)"
+Write-Host "  Nexus:        https://www.nexusmods.com/$($config.nexus.gameDomain)/mods/$($config.nexus.pageModId)"
 Write-Host ""
 Write-Host "Remember to tag the commit:  git tag v$version && git push --tags"
 Write-Host ""
