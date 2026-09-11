@@ -109,18 +109,40 @@ works outside GitHub Actions. It is cloned at the tag pinned in `release.config.
 ### The constraint
 
 **The API can only add a new version to a file that already exists.** It cannot create a mod
-page or a new file entry. That is why `release.config.json` carries:
+page or a new file entry. If you ever start a *new* mod, the page and its first file must be
+created through the website once; everything after that automates.
 
-```json
-"modId":  3349,
-"fileId": 20599
+### The v1 / v3 ID trap (this cost a failed run)
+
+**Nexus v1 and v3 use different ID namespaces, and the Upload API is v3.** Feeding it v1 IDs
+fails with a badly misleading error:
+
+```
+403 - "You do not have permission to upload files to this mod."
 ```
 
-- `modId` 3349 → https://www.nexusmods.com/valheim/mods/3349
-- `fileId` 20599 → the current primary MAIN file
+That is an ID resolution failure, not a permissions problem. The IDs you get from the mod page
+URL and from the v1 API are *not* the ones this API wants:
 
-If you ever start a *new* mod, the page and its first file must be created through the website
-once; everything after that automates.
+| Meaning | Value | Where it comes from |
+|---------|-------|---------------------|
+| Game-scoped id (mod page URL) | `3349` | `nexusmods.com/valheim/mods/3349` — **links only, never API calls** |
+| v3 mod id | `15749645077781` | `GET /v3/games/valheim/mods/3349` → `data.id` |
+| v3 mod_file id | `7418183` | `GET /v3/mods/15749645077781/files` → `data.mod_files[].id` |
+
+Note the v1 API reports `file_id` 20598 and 20599 as two separate *files*; in v3 they are two
+*versions* of the single mod_file `7418183`. `release.config.json` records all three values
+with the exact calls needed to rediscover them.
+
+### The action leaks your API key when run locally
+
+`@actions/core` always writes `::debug::` lines to stdout and relies on the GitHub Actions
+runner to decide whether to display them. Run outside GitHub there is no such filter, so the
+action prints its full request headers — **including the API key** — on every call.
+
+`release.ps1` filters those lines out and redacts the key from anything else the action emits.
+If you ever run the action directly rather than through `release.ps1`, pipe its output through
+a filter or expect your key in the logs.
 
 Requires Node 20+ (24 is what this was tested against) and `NEXUSMODS_API_KEY` in `.env`.
 
@@ -129,6 +151,26 @@ Requires Node 20+ (24 is what this was tested against) and `NEXUSMODS_API_KEY` i
 This is a beta API. The action tag is pinned on purpose — bump it deliberately, not
 automatically. Nexus's GraphQL API carries an explicit warning that existing features "may
 change or disappear without warning."
+
+---
+
+## Gotchas already hit and handled
+
+These are baked into the scripts; listed so a future change does not undo them.
+
+- **`tcli publish --file` is mutually exclusive** with `--package-name`, `--package-namespace`
+  and `--package-version`. With a prebuilt zip, identity comes from `thunderstore.toml` plus
+  the zip's own `manifest.json`, so `release.ps1` stamps the toml's `versionNumber` instead of
+  passing a flag.
+- **Thunderstore's package API is cached.** After publishing, `api/experimental/package/...`
+  can still report the previous version for a while. The package page is authoritative; a
+  duplicate publish attempt returning "Package of the same namespace, name and version already
+  exists" also confirms success.
+- **Windows PowerShell 5.1 writes a UTF-8 BOM** with `Set-Content -Encoding utf8`, which
+  Thunderstore's manifest parser can reject. `tools/Set-ManifestVersion.ps1` writes UTF-8
+  without a BOM explicitly.
+- **Nexus boolean inputs**: `archive_existing_version` is read with `getBooleanInput` and has
+  no default outside GitHub Actions, so it must always be set to a literal `true`/`false`.
 
 ---
 
