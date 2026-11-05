@@ -22,8 +22,8 @@ try {
         Write-Output 'Nexus summary and description update accepted (HTTP 204).'
     }
     $after = Invoke-RestMethod -Uri $modUri -Headers $headers
-    # Nexus may normalize line endings when storing BBCode.
-    $actual = ([string]$after.data.description).Replace("`r`n", "`n").Trim()
+    # Nexus inserts an HTML <br /> after each stored editor newline.
+    $actual = ([string]$after.data.description).Replace("`r`n", "`n").Replace("`n<br />", "`n").Trim()
     $expected = $description.Replace("`r`n", "`n").Trim()
     if ($actual -ne $expected) { throw 'Nexus description read-back does not match the committed text.' }
     Write-Output 'Verified live Nexus description matches the committed BBCode.'
