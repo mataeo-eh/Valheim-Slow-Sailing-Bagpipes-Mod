@@ -13,6 +13,8 @@
 
   "nexus": {
     "gameDomain": "valheim",
+    "summaryFile": "packaging/nexusmods/summary.txt",
+    "descriptionFile": "packaging/nexusmods/description.bbcode",
 
     "_idNamespaceWarning": [
       "CRITICAL: Nexus v1 and v3 use DIFFERENT id namespaces, and mixing them fails with a",

@@ -8,6 +8,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SailingBagpipes</RootNamespace>
     <AssemblyName>SailingBagpipes</AssemblyName>
+    <!-- Packages ship only the DLL; omit machine-local PDB paths from public builds. -->
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
   <!--

@@ -627,9 +627,10 @@ The mod runs `Update()` every frame and checks:
 1. **Is there a local player?**
    - `Player.m_localPlayer` must be non-null
 
-2. **Is the player controlling a ship?**
-   - `ResolveControlledShip()` first checks `player.GetControlledShip()`
-   - Then falls back through doodad-controller and attached-ship resolution paths if needed
+2. **Is the player aboard a ship?**
+   - `OnboardShipResolver.Resolve()` accepts a controlled ship only with confirmed boarding membership
+   - Standing/seated passengers use `Ship.GetLocalShip()` with `Ship.IsPlayerInBoat(player)`
+   - See [MULTIPLAYER.md](MULTIPLAYER.md) for current multiplayer behavior and the server-only investigation
 
 3. **Is the ship at slow speed OR rowing backward?**
    - `ship.GetSpeedSetting() == Ship.Speed.Slow` (forward rowing)
@@ -701,9 +702,10 @@ Config.SettingChanged += (_, args) => { ... }
 
 ### Known Limitations
 
-1. **Multiplayer synchronization:** Music is client-side only
-   - Other players don't hear your bagpipes
-   - Each player's music is independent
+1. **Multiplayer synchronization:** Music is optional on each client
+   - Modded helmsmen and passengers hear their own tracks on their own eligible boat
+   - Unmodded players keep vanilla music; server installation is unnecessary
+   - Track selection/playback position are independent between clients
 
 2. **No in-game UI:** Configuration is file-based only
    - No BepInEx ConfigurationManager integration (yet)

@@ -5,12 +5,16 @@
 > Play custom bagpipe music while rowing your Viking longship across the seas of Valheim!
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.6-blue.svg)](https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod/releases)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod/releases)
 [![BepInEx](https://img.shields.io/badge/BepInEx-5.4.2350-green.svg)](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
 
 ## Description
 
 The **Slow Sailing Bagpipes** mod adds atmospheric bagpipe music that plays automatically when you row your boat at slow speed in Valheim. Whether you're traversing the ocean in a Raft, Karve, or Longship, this mod enhances your rowing experience with custom Celtic-inspired music.
+
+Now multiplayer compatible for helmsmen and passengers! This mod is client-side:
+every player who wants to hear the bagpipes needs the mod and audio tracks installed.
+Players without it can join normally and hear vanilla music. The server does not need the mod.
 
 Perfect for those peaceful moments when you're paddling along the coastline or crossing between islands!
 
@@ -18,6 +22,7 @@ Perfect for those peaceful moments when you're paddling along the coastline or c
 
 - **Automatic Playback**: Music starts after about 0.1 seconds of eligible rowing, then fades in over 1.5 seconds
 - **Bidirectional Support**: Works with both forward and backward rowing
+- **Passengers Included**: Plays locally for the helmsman and passengers aboard the rowing boat; players off that boat keep vanilla music
 - **Custom Music**: Add your own MP3, OGG, or WAV files
 - **Random Selection**: Multiple tracks? The mod picks one randomly each time
 - **Smooth Transitions**:
@@ -53,6 +58,22 @@ For complete installation guides for all methods, see **[INSTALLATION.md](INSTAL
 4. **Enjoy your voyage!**
 
 When you stop rowing, the music fades out. If you start rowing again within 10 seconds, it resumes without waiting through the trigger threshold again.
+
+Leaving the boat stops bagpipes immediately and clears that boat's resume window.
+
+## Multiplayer
+
+Each player who wants bagpipes needs the mod and playable tracks installed locally.
+The host/server does not need it. Unmodded players can join and hear vanilla music.
+Installing the mod only on a host does not send custom music to guests.
+
+Standing and seated passengers hear bagpipes when their own boat rows forward
+slowly or backward, even when another player controls or owns it. Playback and
+track selection are independent on each client; nearby observers and occupants
+of other boats retain their own music behavior.
+
+See [MULTIPLAYER.md](MULTIPLAYER.md) for the server-only feasibility investigation
+and [TESTING.md](TESTING.md) for verification status and multiplayer test cases.
 
 ## Customizing Your Music
 
@@ -127,7 +148,7 @@ The bagpipes follow Valheim's own **Master** and **Music** volume sliders, inclu
 | **Grace period** | 10 seconds |
 | **Rowing detection** | Forward (Ship.Speed.Slow) OR Backward (Ship.Speed.Back) |
 | **Audio formats** | MP3, OGG, WAV |
-| **Multiplayer** | Client-side only (each player hears their own music) |
+| **Multiplayer** | Optional on each client; helmsman and passengers on their own eligible boat |
 
 ## Troubleshooting
 
@@ -203,7 +224,7 @@ Contributions are welcome! Please:
 
 ## Credits
 
-- **Mod Author**: mataeo-eh
+- **Mod Author**: Therunner
 - **Framework**: [BepInEx Team](https://github.com/BepInEx/BepInEx) - Mod loading framework
 - **Library**: [Valheim Modding Team](https://github.com/Valheim-Modding/Jotunn) - JotunnLib for Valheim modding
 - **Game**: [Iron Gate Studio](https://www.irongatestudio.se/) - Creators of Valheim

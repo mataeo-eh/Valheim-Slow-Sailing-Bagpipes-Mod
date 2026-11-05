@@ -21,8 +21,8 @@ schemaVersion = "0.0.1"
 namespace = "Therunner"
 name = "SlowSailingBagpipes"
 # Stamped by release.ps1 from the repo-root VERSION file. Do not edit by hand.
-versionNumber = "1.0.7"
-description = "Play custom bagpipe music while rowing your Viking longship!"
+versionNumber = "1.1.0"
+description = "Multiplayer-compatible rowing music for helmsmen and passengers. Client-side: each player needs the mod and audio tracks to hear bagpipes; unmodded players keep vanilla music."
 websiteUrl = "https://github.com/mataeo-eh/Valheim-Slow-Sailing-Bagpipes-Mod"
 containsNsfwContent = false
 

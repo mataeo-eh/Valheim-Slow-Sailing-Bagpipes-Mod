@@ -2,9 +2,9 @@
 Slow Sailing Bagpipes - Valheim Mod
 ===========================================
 
-Version: 1.0.6
-Author: mataeo-eh
-Date: 2026-05-14
+Version: 1.1.0
+Author: Therunner
+Date: 2026-11-05
 
 ===========================================
 DESCRIPTION
@@ -15,6 +15,12 @@ Play custom bagpipe music while rowing your Viking longship!
 This mod automatically plays atmospheric bagpipe music when you row
 at slow speed (forward or backward) in any boat. Perfect for those
 long ocean voyages!
+
+Now multiplayer compatible for helmsmen and passengers! Music plays only for
+players aboard an eligible rowing boat. This mod is client-side: every player
+who wants to hear the bagpipes needs the mod and audio tracks installed.
+Players without it can join normally and hear vanilla music. The server does
+not need the mod.
 
 Features:
 - Automatic music after about 0.1 seconds of eligible rowing
@@ -151,7 +157,11 @@ Music volume too loud/quiet:
 COMPATIBILITY
 ===========================================
 
-Multiplayer: Client-side only
+Multiplayer: Optional on each client; the server does not need the mod.
+Helmsmen and standing/seated passengers hear their own tracks on their rowing boat.
+Unmodded players keep vanilla music. Leaving the boat stops playback immediately.
+Track selection is independent between clients. Host-only installation does not
+send custom audio to guests.
 Each player hears their own music independently.
 
 Other mods: Should be compatible with most mods.

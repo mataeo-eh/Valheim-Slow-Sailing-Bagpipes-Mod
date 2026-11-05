@@ -1,0 +1,1 @@
+Multiplayer-compatible bagpipe music for helmsmen and passengers aboard a rowing boat. Client-side: every player who wants to hear the bagpipes needs the mod and audio tracks installed. Unmodded players can join normally and hear vanilla music.

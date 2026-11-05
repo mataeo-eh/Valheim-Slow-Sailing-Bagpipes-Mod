@@ -32,7 +32,6 @@ public class Plugin : BaseUnityPlugin
     private const string DefaultTrackDirectoryName = "BagPipesTracks";
 
     private static readonly string[] SupportedExtensions = { ".mp3", ".ogg", ".wav" };
-    private static readonly FieldInfo? ShipPlayersField = typeof(Ship).GetField("m_players", BindingFlags.Instance | BindingFlags.NonPublic);
     private static readonly FieldInfo? MusicManMusicSourceField = typeof(MusicMan).GetField("m_musicSource", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private ConfigEntry<bool>? _enabled;
@@ -60,6 +59,8 @@ public class Plugin : BaseUnityPlugin
     private float _resumeUntil;
     private bool _musicManSuppressed;
     private bool _audioSourceConfiguredFromMusicMan;
+    private Player? _playbackPlayer;
+    private Ship? _playbackShip;
 
     // How far the current fade has progressed, from 0 (silent) to 1 (full). Kept separate from
     // AudioSource.volume so the Volume config and the game's own volume sliders can change while
@@ -117,11 +118,7 @@ public class Plugin : BaseUnityPlugin
     {
         if (_enabled is not { Value: true })
         {
-            if (_isPlaying || _isPausedForGrace || _pendingPlayback)
-            {
-                StopBagpipes(immediate: true);
-            }
-
+            ResetPlaybackContext();
             return;
         }
 
@@ -138,20 +135,30 @@ public class Plugin : BaseUnityPlugin
         ApplyEffectiveVolume();
 
         var player = Player.m_localPlayer;
-        if (player == null)
+        if (player == null || player.IsDead() || player.IsTeleporting())
         {
-            if (_isPlaying || _isPausedForGrace || _pendingPlayback)
-            {
-                StopBagpipes(immediate: true);
-            }
-
+            ResetPlaybackContext();
             LogControlState(null, null, null, "None");
             return;
         }
 
-        var ship = ResolveControlledShip(player, out var controllerDescription);
+        var ship = OnboardShipResolver.Resolve(player, out var controllerDescription);
+        if (!ReferenceEquals(player, _playbackPlayer) || !ReferenceEquals(ship, _playbackShip))
+        {
+            // A paused track and its grace window belong to one player on one boat.
+            // Leaving, changing boats or reconnecting must also cancel an in-flight load.
+            ResetPlaybackContext();
+            _playbackPlayer = player;
+            _playbackShip = ship;
+        }
+
         Ship.Speed? speedSetting = ship?.GetSpeedSetting();
         LogControlState(player, ship, speedSetting, controllerDescription);
+
+        if (ship == null)
+        {
+            return;
+        }
 
         var isRowingAtTriggerSpeed = speedSetting.HasValue && IsRowingAtTriggerSpeed(speedSetting.Value);
 
@@ -162,6 +169,21 @@ public class Plugin : BaseUnityPlugin
         }
 
         HandleNonRowingState(ship, speedSetting);
+    }
+
+    private void ResetPlaybackContext()
+    {
+        if (_isPlaying || _isPausedForGrace || _pendingPlayback || _fadeRoutine != null ||
+            _clipLoadRoutine != null || _musicManSuppressed)
+        {
+            StopBagpipes(immediate: true);
+        }
+
+        _resumeUntil = 0f;
+        _paddleTimer = 0f;
+        _lastEligibleRowingState = false;
+        _playbackPlayer = null;
+        _playbackShip = null;
     }
 
     private void OnConfigSettingChanged(object? sender, SettingChangedEventArgs args)
@@ -369,96 +391,6 @@ public class Plugin : BaseUnityPlugin
         return string.IsNullOrWhiteSpace(objectName) ? ship.GetType().Name : objectName;
     }
 
-    private static Ship? ResolveControlledShip(Player player, out string controllerDescription)
-    {
-        var directShip = player.GetControlledShip();
-        if (directShip != null)
-        {
-            controllerDescription = "Player.GetControlledShip";
-            return directShip;
-        }
-
-        var controller = player.GetDoodadController();
-        if (controller == null)
-        {
-            controllerDescription = "None";
-            return null;
-        }
-
-        var controlledComponent = controller.GetControlledComponent();
-        controllerDescription = controlledComponent == null
-            ? controller.GetType().Name
-            : $"{controller.GetType().Name}->{controlledComponent.GetType().Name}";
-
-        if (controlledComponent is Ship controlledShip)
-        {
-            return controlledShip;
-        }
-
-        if (controlledComponent == null)
-        {
-            return ResolveAttachedShip(player, ref controllerDescription);
-        }
-
-        var resolvedShip = controlledComponent.GetComponent<Ship>() ?? controlledComponent.GetComponentInParent<Ship>();
-        return resolvedShip ?? ResolveAttachedShip(player, ref controllerDescription);
-    }
-
-    private static Ship? ResolveAttachedShip(Player player, ref string controllerDescription)
-    {
-        Ship? nearestAttachedShip = null;
-        var nearestDistance = float.MaxValue;
-
-        foreach (var ship in FindObjectsByType<Ship>(FindObjectsSortMode.None))
-        {
-            if (ShipContainsPlayer(ship, player))
-            {
-                controllerDescription = AppendResolutionSource(controllerDescription, "Ship.m_players");
-                return ship;
-            }
-
-            if (!player.IsAttachedToShip())
-            {
-                continue;
-            }
-
-            var distance = Vector3.Distance(player.transform.position, ship.transform.position);
-            if (distance < nearestDistance)
-            {
-                nearestDistance = distance;
-                nearestAttachedShip = ship;
-            }
-        }
-
-        if (nearestAttachedShip != null && nearestDistance <= 25f)
-        {
-            controllerDescription = AppendResolutionSource(controllerDescription, $"NearestAttachedShip({nearestDistance:F1}m)");
-            return nearestAttachedShip;
-        }
-
-        return null;
-    }
-
-    private static bool ShipContainsPlayer(Ship ship, Player player)
-    {
-        if (ShipPlayersField?.GetValue(ship) is not List<Player> players)
-        {
-            return false;
-        }
-
-        return players.Contains(player);
-    }
-
-    private static string AppendResolutionSource(string currentDescription, string source)
-    {
-        if (string.IsNullOrWhiteSpace(currentDescription) || currentDescription == "None")
-        {
-            return source;
-        }
-
-        return $"{currentDescription}+{source}";
-    }
-
     private void EnsurePlaceholderTrackExists(string trackDirectory)
     {
         var placeholderPath = Path.Combine(trackDirectory, PlaceholderTrackName);
@@ -636,16 +568,18 @@ public class Plugin : BaseUnityPlugin
     private void StopBagpipes(bool immediate = false)
     {
         CancelPendingPlayback();
+        CancelFade();
 
         if (_audioSource == null)
         {
             _isPlaying = false;
             _isPausedForGrace = false;
             _resumeUntil = 0f;
+            _fadeLevel = 0f;
+            SetGameMusicSuppressed(shouldSuppress: false);
             return;
         }
 
-        CancelFade();
         _isPlaying = false;
         _isPausedForGrace = false;
         _resumeUntil = 0f;

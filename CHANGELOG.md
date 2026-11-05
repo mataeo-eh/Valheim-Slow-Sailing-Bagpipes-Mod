@@ -5,6 +5,17 @@ All notable changes to the Valheim Slow Sailing Bagpipes mod will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-11-05
+
+### Changed
+- Include standing and seated passengers on their own rowing boat, using Valheim's
+  boarding membership instead of requiring local ship control or guessing by distance.
+- Clear playback, pending loads and the resume window when leaving/changing boats,
+  changing player, dying, teleporting or disabling the mod. Preserve existing rowing
+  timing, fades and the same-boat grace period.
+- Document the server-only audio investigation and optional client installation:
+  unmodded players retain vanilla audio; the server does not need this mod.
+
 ## [1.0.7] - 2026-09-11
 
 ### Fixed

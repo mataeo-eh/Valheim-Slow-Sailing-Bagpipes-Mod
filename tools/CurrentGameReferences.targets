@@ -1,0 +1,13 @@
+<Project>
+  <!-- Verification override: use current, unmodified game assemblies without
+       Jotunn's legacy publicizer writing into the Steam installation. Pass with
+       CustomAfterMicrosoftCommonTargets and ExecutePrebuild=false. -->
+  <Target Name="UseCurrentGameReferences" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="assembly_googleanalytics_publicized;assembly_guiutils_publicized;assembly_lux_publicized;assembly_postprocessing_publicized;assembly_simplemeshcombine_publicized;assembly_sunshafts_publicized;assembly_utils_publicized;assembly_valheim_publicized;SoftReferenceableAssets_publicized;gui_framework_publicized" />
+      <Reference Include="$(VALHEIM_MANAGED)/assembly_*.dll;$(VALHEIM_MANAGED)/SoftReferenceableAssets.dll;$(VALHEIM_MANAGED)/gui_framework.dll">
+        <Private>false</Private>
+      </Reference>
+    </ItemGroup>
+  </Target>
+</Project>
