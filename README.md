@@ -1,3 +1,5 @@
+> Workspace commands have moved to the shared Valheim_Mods parent. See [WORKSPACE.md](WORKSPACE.md) for current build, deployment and release commands.
+
 # Valheim Slow Sailing Bagpipes
 
 > Play custom bagpipe music while rowing your Viking longship across the seas of Valheim!

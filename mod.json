@@ -1,0 +1,10 @@
+{
+  "status": "ready",
+  "displayName": "Slow Sailing Bagpipes",
+  "project": "src/SlowSailingBagpipes/SlowSailingBagpipes.csproj",
+  "dll": "src/SlowSailingBagpipes/bin/Release/net472/SailingBagpipes.dll",
+  "pluginType": "SailingBagpipes.Plugin",
+  "profileDir": "%APPDATA%/Thunderstore Mod Manager/DataFolder/Valheim/profiles/Test_Mods",
+  "assets": [{ "source": "BagPipesTracks", "destination": "BagPipesTracks" }],
+  "packaging": { "thunderstore": "packaging/thunderstore", "nexus": "packaging/nexusmods" }
+}
